@@ -1,0 +1,93 @@
+body {
+  padding-top: 90px;
+  padding-bottom: 90px
+}
+#player-container {
+  width: 100%;
+  height: 50px;
+  background-color: #f6f6f6;
+  border-top: 1px solid #aaa;
+  bottom: 0px;
+  overflow: hidden;
+  position: fixed;
+  z-index: 1999;
+}
+.container-fixed {
+  min-width: 1000px;
+}
+.jp-controls, .jp-toggles {
+	vertical-align: top;
+	margin-top: 9px;
+	float:left;
+}
+.jp-toggles {
+	float:right;
+}
+.glyphicon-volume-down,
+.glyphicon-volume-up,
+.jp-duration,
+.jp-current-time {
+    display: inline-block;
+	vertical-align: top;
+}
+.volume-container,
+.jp-time-holder,
+.jp-toggles,
+.jp-volume-bar,
+.seek-bar {
+	display: inline-block;
+}
+.jp-time-holder,
+.volume-container {
+	float:left;
+	height: 20px;
+	vertical-align: top;
+	margin-top: 18px;
+	margin-right: 10px;
+	margin-left: 10px;
+}
+.jp-volume-bar {
+	width: 140px;
+	height: 14px;
+}
+.jp-seek-bar {
+	width: 140px;
+	height: 14px;
+}
+.seek-bar {
+	min-width: 300px;
+}
+.jp-time-holder {
+	height: 50px;
+}
+
+
+.jp-playlist ul {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+.jp-playlist-item {
+/*	display: block;
+	padding: 5px 8px;*/
+}
+.jp-playlist-item.jp-playlist-current {
+	background-color: #f6f6f6;
+	color: #555;
+}
+.jp-playlist > ul > .list-group-item:hover{
+    background-color: #f6f6f6;
+}
+
+.covert-art {
+  width: 70px;
+  height: 70px;
+  margin: 0 10px;
+}
+.shorten {
+    overflow: hidden;
+	text-overflow: ellipsis;
+	-o-text-overflow: ellipsis;
+	white-space: nowrap;
+	width: 100%;
+}

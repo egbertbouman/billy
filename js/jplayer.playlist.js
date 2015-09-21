@@ -253,12 +253,9 @@
 
 			// Create play/remove controls
 		    listItem += '<div class="pull-right m-l btn-group">';
-            listItem += '<a href="#" class="m-r-sm btn-play ' + this.options.playlistOptions.itemClass +'"><span class="glyphicon glyphicon-play text-success"></span></a>';
-            listItem += '<a href="#" class="m-r-sm btn-remove ' + this.options.playlistOptions.removeItemClass +'"><span class="glyphicon glyphicon-remove text-danger"></span></a>';
+            listItem += '<a href="#" class="m-r-sm ' + this.options.playlistOptions.itemClass +'"><span class="glyphicon glyphicon-play"></span></a>';
+            listItem += '<a href="#" class="m-r-sm ' + this.options.playlistOptions.removeItemClass +'"><span class="glyphicon glyphicon-remove"></span></a>';
             listItem += '</div>';
-
-			// Create remove control
-			//listItem += "<a href='javascript:;' class='" + this.options.playlistOptions.removeItemClass + "'>&times;</a>";
 
 			// Create links to free media
 			if(media.free) {

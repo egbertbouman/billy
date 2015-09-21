@@ -67,16 +67,16 @@ body {
 	margin: 0;
 	padding: 0;
 }
-.jp-playlist-item {
-/*	display: block;
-	padding: 5px 8px;*/
-}
-.jp-playlist-item.jp-playlist-current {
+.jp-playlist-current {
 	background-color: #f6f6f6;
 	color: #555;
 }
-.jp-playlist > ul > .list-group-item:hover{
-    background-color: #f6f6f6;
+
+#search-results a, #playlist a {
+	color: #888;
+}
+#search-results a:hover, #playlist a:hover {
+	color: #666;
 }
 
 .covert-art {

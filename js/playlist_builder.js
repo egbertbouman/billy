@@ -4,6 +4,8 @@ playlist_builder = {};
 
     playlist_builder.jamendo_client = '9d9f42e3';
     playlist_builder.search_results = {};
+    playlist_builder.playlist = undefined;
+    playlist_builder.playlists = [];
 
     playlist_builder.create = function() {
         this.playlist = new jPlayerPlaylist({
@@ -16,6 +18,7 @@ playlist_builder = {};
           supplied: 'mp3,m4a',
           wmode: 'window'
         });
+        this.playlists.push(this.playlist);
     }
 
     playlist_builder.search = function() {
@@ -37,8 +40,8 @@ playlist_builder = {};
                 var item_html = '<li class="list-group-item shorten">';
 
                 item_html += '<div class="pull-right m-l btn-group">';
-                item_html += '<a href="#" onclick="playlist_builder.play(' + val['id'] + '); return false;" class="m-r-sm btn-play"><span class="glyphicon glyphicon-play text-success"></span></a>';
-                item_html += '<a href="#" onclick="playlist_builder.add(' + val['id'] + '); return false;" class="m-r-sm btn-play"><span class="glyphicon glyphicon-plus text-primary"></span></a>';
+                item_html += '<a href="#" onclick="playlist_builder.play(' + val['id'] + '); return false;" class="m-r-sm"><span class="glyphicon glyphicon-play"></span></a>';
+                item_html += '<a href="#" onclick="playlist_builder.add(' + val['id'] + '); return false;" class="m-r-sm"><span class="glyphicon glyphicon-plus"></span></a>';
                 item_html += '</div>';
 
                 item_html += '<img src="' + val['image'] + '" alt="" class="img-thumbnail covert-art"';

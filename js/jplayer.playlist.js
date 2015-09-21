@@ -152,7 +152,7 @@
 				autoPlay: false,
 				loopOnPrevious: false,
 				shuffleOnLoop: true,
-				enableRemoveControls: false,
+				enableRemoveControls: true,
 				displayTime: 'slow',
 				addTime: 'fast',
 				removeTime: 'fast',
@@ -251,12 +251,14 @@
 			// Wrap the <li> contents in a <div>
 			var listItem = "<li class='list-group-item shorten'><div>";
 
+			// Create play/remove controls
 		    listItem += '<div class="pull-right m-l btn-group">';
             listItem += '<a href="#" class="m-r-sm btn-play ' + this.options.playlistOptions.itemClass +'"><span class="glyphicon glyphicon-play text-success"></span></a>';
+            listItem += '<a href="#" class="m-r-sm btn-remove ' + this.options.playlistOptions.removeItemClass +'"><span class="glyphicon glyphicon-remove text-danger"></span></a>';
             listItem += '</div>';
 
 			// Create remove control
-			listItem += "<a href='javascript:;' class='" + this.options.playlistOptions.removeItemClass + "'>&times;</a>";
+			//listItem += "<a href='javascript:;' class='" + this.options.playlistOptions.removeItemClass + "'>&times;</a>";
 
 			// Create links to free media
 			if(media.free) {
@@ -306,7 +308,7 @@
 			// Create live handlers for the remove controls
 			$(this.cssSelector.playlist).off("click", "a." + this.options.playlistOptions.removeItemClass).on("click", "a." + this.options.playlistOptions.removeItemClass, function(e) {
 				e.preventDefault();
-				var index = $(this).parent().parent().index();
+				var index = $(this).parent().parent().parent().index();
 				self.remove(index);
 				self.blur(this);
 			});

@@ -252,7 +252,7 @@
 			var listItem = "<li class='list-group-item shorten'><div>";
 
 		    listItem += '<div class="pull-right m-l btn-group">';
-            listItem += '<a href="#" onclick="playlist_builder.play(); return false;" class="m-r-sm btn-play"><span class="glyphicon glyphicon-play text-success"></span></a>';
+            listItem += '<a href="#" class="m-r-sm btn-play ' + this.options.playlistOptions.itemClass +'"><span class="glyphicon glyphicon-play text-success"></span></a>';
             listItem += '</div>';
 
 			// Create remove control
@@ -277,7 +277,6 @@
 
 			// The title is given next in the HTML otherwise the float:right on the free media corrupts in IE6/7
             listItem += '<img src="' + media.poster + '" alt="" class="img-thumbnail covert-art">';
-			//listItem += "<a href='javascript:;' class='" + this.options.playlistOptions.itemClass + "' tabindex='0'>" + media.title + (media.artist ? " <span class='jp-artist'>by " + media.artist + "</span>" : "") + "</a>";
 			listItem += media.title + ' - ' + media.artist;
 			listItem += "</li></a>";
 
@@ -288,7 +287,7 @@
 			// Create live handlers for the playlist items
 			$(this.cssSelector.playlist).off("click", "a." + this.options.playlistOptions.itemClass).on("click", "a." + this.options.playlistOptions.itemClass, function(e) {
 				e.preventDefault();
-				var index = $(this).parent().parent().index();
+				var index = $(this).parent().parent().parent().index();
 				if(self.current !== index) {
 					self.play(index);
 				} else {

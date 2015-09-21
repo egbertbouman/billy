@@ -10,20 +10,6 @@ playlist_builder = {};
           jPlayer: '#player-core',
           cssSelectorAncestor: '#player-ui'
         }, [
-          {
-            title:"Title",
-            artist:"Artist",
-            mp3:'http://www.jplayer.org/audio/mp3/Miaow-07-Bubble.mp3',
-            oga:'http://www.jplayer.org/audio/mp3/Miaow-07-Bubble.ogg',
-            poster: "http://www.jplayer.org/audio/poster/The_Stark_Palace_640x360.png"
-          },
-          {
-            title:"Title2",
-            artist:"Artist2",
-            mp3:'http://www.jplayer.org/audio/mp3/Miaow-07-Bubble.mp3',
-            oga:'http://www.jplayer.org/audio/mp3/Miaow-07-Bubble.ogg',
-            poster: "http://www.jplayer.org/audio/poster/The_Stark_Palace_640x360.png"
-          }
         ],
         {
           swfPath: 'js/jplayer-2.2.0',

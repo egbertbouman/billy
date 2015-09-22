@@ -4,21 +4,36 @@ playlist_builder = {};
 
     playlist_builder.jamendo_client = '9d9f42e3';
     playlist_builder.search_results = {};
-    playlist_builder.playlist = undefined;
-    playlist_builder.playlists = [];
+    playlist_builder.playlists = {};
+    playlist_builder.playlist_name = undefined;
+    playlist_builder.playlist = new jPlayerPlaylist({
+                                  jPlayer: '#player-core',
+                                  cssSelectorAncestor: '#player-ui'
+                                }, [],
+                                {
+                                  swfPath: 'js/jplayer-2.2.0',
+                                  supplied: 'mp3,m4a',
+                                  wmode: 'window'
+                                });       
 
-    playlist_builder.create = function() {
-        this.playlist = new jPlayerPlaylist({
-          jPlayer: '#player-core',
-          cssSelectorAncestor: '#player-ui'
-        }, [
-        ],
-        {
-          swfPath: 'js/jplayer-2.2.0',
-          supplied: 'mp3,m4a',
-          wmode: 'window'
-        });
-        this.playlists.push(this.playlist);
+    playlist_builder.create = function(name, description) {
+        // TODO: call API
+        // TODO: check if name already exists
+        $('#playlist-menu').append('<li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="playlist_builder.set(\'' + name + '\');">' + name + '</a></li>');
+        this.set(name);
+    }
+
+    playlist_builder.set = function(name) {
+        if (this.playlist_name !== undefined) {
+            this.playlists[this.playlist_name] = this.playlist.playlist;
+        }
+        if (name in this.playlists) {
+            this.playlist.setPlaylist(this.playlists[name]);
+        }
+        else {
+            this.playlist.setPlaylist([]);
+        }
+        this.playlist_name = name;
     }
 
     playlist_builder.search = function() {

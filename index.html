@@ -108,14 +108,16 @@
 
         <div class="dropdown">
           <div class="btn-group">
-            <button class="btn btn-default dropdown-toggle" type="button" id="menu1" data-toggle="dropdown">Playlist
+            <button class="btn btn-default dropdown-toggle" type="button" id="playlist-menu-button" data-toggle="dropdown">Playlist
             <span class="caret"></span></button>
-            <ul class="dropdown-menu" role="menu" aria-labelledby="menu1">
-              <li role="presentation"><a role="menuitem" tabindex="-1" href="#">Playlist1</a></li>
-              <li role="presentation"><a role="menuitem" tabindex="-1" href="#">Playlist2</a></li>
+            <ul class="dropdown-menu" role="menu" aria-labelledby="playlist-menu-button" id="playlist-menu">
             </ul>
  
-            <button type="button" class="btn btn-default" data-toggle="modal" data-target="#new-playlist-modal">New playlist</button>
+            <button type="button" class="btn btn-default" data-toggle="modal" data-target="#new-playlist-modal">Create</button>
+            <button type="button" class="btn btn-default">Delete</button>
+            <button type="button" class="btn btn-default">Import</button>
+            <button type="button" class="btn btn-default">Export</button>
+
             <div class="modal fade" id="new-playlist-modal" tabindex="-1" role="dialog">
               <div class="modal-dialog">
                 <div class="modal-content">
@@ -125,7 +127,7 @@
                   </div>
 
                   <div class="modal-body">
-                    <form action="" role="form" data-toggle="validator" id="new_playlist_form">
+                    <form action="" role="form" data-toggle="validator" id="new-playlist-form">
                       <div class="form-group">
                         <label for="playlist-name" class="control-label">Name</label>
                         <input type="text" id="playlist-name" class="form-control" required>
@@ -140,7 +142,7 @@
 
                   <div class="modal-footer">
                     <a href="#" class="btn btn-default" data-dismiss="modal">Close</a>
-                    <button type="submit" class="btn btn-primary" form="new_playlist_form">Save</button>
+                    <button type="submit" class="btn btn-primary" form="new-playlist-form">Save</button>
                   </div>
                 </div>
               </div>
@@ -184,16 +186,18 @@
       });
 
       $(document).ready(function(){
-        playlist_builder.create();
+        playlist_builder.create('Default', '');
       });
 
-      $('#new_playlist_form').submit(function (e) {
+      $('#new-playlist-form').submit(function (e) {
         if (!e.isDefaultPrevented()) {
           var name = $('#playlist-name').val();
           var description = $('#playlist-description').val();
-          playlist_builder.create();
+          playlist_builder.create(name, description);
+          $('#new-playlist-modal').modal('hide');
+          $('#new-playlist-modal').find('form')[0].reset();
         }
-      })
+      });
 
   </script>
   </body>

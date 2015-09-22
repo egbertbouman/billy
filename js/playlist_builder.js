@@ -23,6 +23,27 @@ playlist_builder = {};
         this.set(name);
     }
 
+    playlist_builder.delete = function() {
+        if (this.playlist_name !== undefined) {
+            this.playlists[this.playlist_name] = this.playlist.playlist;
+        }
+
+        var keys = Object.keys(this.playlists);
+        if (keys.length < 2) {
+            bootbox.alert("You need to have multiple playlists in order to remove one.");
+        }
+
+        var index = keys.indexOf(this.playlist_name);
+        index = (index < keys.length - 1) ? index + 1 : index - 1
+        var to_delete = this.playlist_name;
+        var to_show = keys[index];
+
+        this.set(to_show);
+
+        delete this.playlists[to_delete];
+        $('#playlist-menu > li > a[onclick="playlist_builder.set(\'' + to_delete + '\');"]').parent().remove();
+    }
+
     playlist_builder.set = function(name) {
         if (this.playlist_name !== undefined) {
             this.playlists[this.playlist_name] = this.playlist.playlist;

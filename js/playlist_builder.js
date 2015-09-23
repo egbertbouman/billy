@@ -114,6 +114,7 @@ playlist_builder = {};
             this.playlist.setPlaylist([]);
         }
         this.playlist_name = name;
+        $('#playlist-menu-button').html('Playlist: ' + name + ' <span class="caret"></span>');
     }
 
     playlist_builder.search = function() {
@@ -142,7 +143,7 @@ playlist_builder = {};
                 item_html += '</div>';
 
                 item_html += '<img src="' + val['image'] + '" alt="" class="img-thumbnail covert-art"';
-                item_html += '<a href="javascript:;" class="jp-playlist-item" tabindex="0">' + val['name'] + ' <span class="jp-artist">' + val['artist_name'] + '</span></a>';
+                item_html += '<a href="javascript:;" class="jp-playlist-item" tabindex="0">' + val['name'] + ' - ' + val['artist_name'] + '</a>';
 
                 item_html += '</li>';
 

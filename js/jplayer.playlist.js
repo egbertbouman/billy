@@ -248,8 +248,7 @@
 		_createListItem: function(media) {
 			var self = this;
 
-			// Wrap the <li> contents in a <div>
-			var listItem = "<li class='list-group-item shorten'><div>";
+			var listItem = "<li class='list-group-item shorten'>";
 
 			// Create play/remove controls
 		    listItem += '<div class="pull-right m-l btn-group">';
@@ -286,7 +285,7 @@
 			// Create live handlers for the playlist items
 			$(this.cssSelector.playlist).off("click", "a." + this.options.playlistOptions.itemClass).on("click", "a." + this.options.playlistOptions.itemClass, function(e) {
 				e.preventDefault();
-				var index = $(this).parent().parent().parent().index();
+				var index = $(this).parent().parent().index();
 				if(self.current !== index) {
 					self.play(index);
 				} else {

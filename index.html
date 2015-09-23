@@ -199,6 +199,8 @@
           if (file) {
               var reader = new FileReader();
               reader.readAsText(file, "UTF-8");
+              // Reset control
+              $('input[type=file]').val(null);
               reader.onload = function (evt) {
                   playlist_builder.import_json(evt.target.result);
               }

@@ -144,7 +144,7 @@
 
                   <div class="modal-footer">
                     <a href="#" class="btn btn-default" data-dismiss="modal">Close</a>
-                    <button id="new-playlist-button" type="button" class="btn btn-primary" form="new-playlist-form">Save</button>
+                    <button id="new-playlist-button" type="submit" class="btn btn-primary" form="new-playlist-form">Save</button>
                   </div>
                 </div>
               </div>
@@ -216,13 +216,20 @@
         });
       });
 
-      $('#new-playlist-button').click(function (evt) {
+      $('#new-playlist-form').submit(function (evt) {
         if (!evt.isDefaultPrevented()) {
           var name = $('#playlist-name').val();
           var description = $('#playlist-description').val();
-          playlist_builder.create_playlist(name, description);
+          // TODO: use form validation for handling duplicate playlist names
+          if (name in playlist_builder.playlists) {
+            bootbox.alert('You already have a playlist called ' + name + '.');
+          }
+          else {
+            playlist_builder.create_playlist(name, description);
+          }
           $('#new-playlist-modal').modal('hide');
           $('#new-playlist-modal').find('form')[0].reset();
+          return false;
         }
       });
 

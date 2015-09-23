@@ -17,7 +17,12 @@ playlist_builder = {};
 
     playlist_builder.add_playlists = function(playlists) {
         // Add playlists + add links to the dropdown menu 
+        var skipped = [];
         for (var name in playlists) {
+            if (name in this.playlists) {
+                skipped.push(name);
+                continue;
+            }
             $('#playlist-menu').append('<li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="playlist_builder.change_playlist(\'' + name + '\');">' + name + '</a></li>');
             this.playlists[name] = playlists[name];
         }
@@ -26,6 +31,7 @@ playlist_builder = {};
             this.change_playlist(Object.keys(this.playlists)[0]);
         }
         this.save_cookie();
+        return skipped;
     }
 
     playlist_builder.get_playlists = function() {
@@ -52,7 +58,10 @@ playlist_builder = {};
 
     playlist_builder.import_json = function(json_string) {
         playlists = JSON.parse(json_string);
-        this.add_playlists(playlists);
+        var skipped = this.add_playlists(playlists);
+        if (skipped.length > 0) {
+            bootbox.alert('You already have playlist(s) with the following name(s): ' + skipped.join(', ') + '. Since playlist names have to be unique, these will not be imported.');
+        }
     }
 
     playlist_builder.export_json = function() {

@@ -111,8 +111,10 @@ playlist_builder = {};
         var self = this;
         var query = $("#search-query").val();
         var results = $("#search-results");
-        $.getJSON("https://api.jamendo.com/v3.0/tracks/?client_id=" + this.jamendo_client + "&format=jsonpretty&limit=20&namesearch=" + query + "&groupby=artist_id", function(data) {
-            //TODO: check success
+        $.getJSON("https://api.jamendo.com/v3.0/tracks/?client_id=" + this.jamendo_client + "&limit=20&namesearch=" + query + "&groupby=artist_id", function(data) {
+            if (!self.check_jamendo_response(data)) {
+                return;
+            }
             results.empty();
             $.each(data['results'], function(key, val) {
 
@@ -148,7 +150,9 @@ playlist_builder = {};
         else {
             var self = this;
             $.getJSON("https://api.jamendo.com/v3.0/tracks/?client_id=" + self.jamendo_client + "&id=" + jamendo_id, function(data) {
-                //TODO: check success
+                if (!self.check_jamendo_response(data)) {
+                    return;
+                }
                 $.each(data['results'], function(key, val) {
 
                     self.playlist.add({
@@ -171,10 +175,20 @@ playlist_builder = {};
         else {
             var self = this;
             $.getJSON("https://api.jamendo.com/v3.0/tracks/?client_id=" + self.jamendo_client + "&id=" + jamendo_id, function(data) {
-                //TODO: check success
+                if (!self.check_jamendo_response(data)) {
+                    return;
+                }
                 $(self.playlist.cssSelector.jPlayer).jPlayer("setMedia", {mp3: data['results'][0]['audio']}).jPlayer("play");
             });   
         }
+    }
+
+    playlist_builder.check_jamendo_response = function(data) {
+        var success = ('headers' in data && 'status' in data['headers'] && data['headers']['status'] === 'success');
+        if (!success) {
+            bootbox.alert('Failed to contact Jamendo server!')
+        }
+        return success;
     }
 
 })(playlist_builder, jQuery);

@@ -114,9 +114,11 @@
             </ul>
  
             <button type="button" class="btn btn-default" data-toggle="modal" data-target="#new-playlist-modal">Create</button>
-            <button type="button" class="btn btn-default" href="#" onclick="playlist_builder.delete();">Delete</button>
-            <button type="button" class="btn btn-default">Import</button>
-            <button type="button" class="btn btn-default">Export</button>
+            <button type="button" class="btn btn-default" href="#" onclick="playlist_builder.delete_playlist();">Delete</button>
+            <button type="button" class="btn btn-default" href="#" onclick="document.getElementById('file').click();">Import</button>
+            <button type="button" class="btn btn-default" href="#" onclick="playlist_builder.export_json();">Export</button>
+
+            <input type='file' id='file' name='file' style='display: none;'/>
 
             <div class="modal fade" id="new-playlist-modal" tabindex="-1" role="dialog">
               <div class="modal-dialog">
@@ -142,7 +144,7 @@
 
                   <div class="modal-footer">
                     <a href="#" class="btn btn-default" data-dismiss="modal">Close</a>
-                    <button type="submit" class="btn btn-primary" form="new-playlist-form">Save</button>
+                    <button id="new-playlist-button" type="button" class="btn btn-primary" form="new-playlist-form">Save</button>
                   </div>
                 </div>
               </div>
@@ -172,6 +174,10 @@
 
   <script src="js/bootbox.min.js"></script>
 
+  <script src="js/jquery.cookie.js"></script>
+
+  <script src="js/FileSaver.min.js"></script>
+
   <script src="js/jquery.jplayer.min.js"></script>
   <script src="js/jplayer.playlist.js"></script>
 
@@ -179,23 +185,42 @@
 
   <script type="text/javascript">
 
-      $("#search-query").keypress(function(e) {
-          if(e.which === 13) {
+      $("#search-query").keypress(function(evt) {
+          if(evt.which === 13) {
               $("#search-button").focus();
               $("#search-button").click();
-              e.preventDefault();
+              evt.preventDefault();
           }
       });
 
-      $(document).ready(function(){
-        playlist_builder.create('Default', '');
+      $('input[type=file]').change(function () {
+          var file = $('input[type=file]')[0].files[0];
+
+          if (file) {
+              var reader = new FileReader();
+              reader.readAsText(file, "UTF-8");
+              reader.onload = function (evt) {
+                  playlist_builder.import_json(evt.target.result);
+              }
+              reader.onerror = function (evt) {
+                  bootbox.alert('Could not read file!');
+              }
+            }
       });
 
-      $('#new-playlist-form').submit(function (e) {
-        if (!e.isDefaultPrevented()) {
+      $(document).ready(function() {
+        $(playlist_builder.playlist.cssSelector.jPlayer).bind($.jPlayer.event.ready, function() {
+          if (!playlist_builder.load_cookie()) {
+              playlist_builder.create_playlist('Default', '');
+          }
+        });
+      });
+
+      $('#new-playlist-button').click(function (evt) {
+        if (!evt.isDefaultPrevented()) {
           var name = $('#playlist-name').val();
           var description = $('#playlist-description').val();
-          playlist_builder.create(name, description);
+          playlist_builder.create_playlist(name, description);
           $('#new-playlist-modal').modal('hide');
           $('#new-playlist-modal').find('form')[0].reset();
         }

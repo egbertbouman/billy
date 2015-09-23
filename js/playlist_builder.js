@@ -11,19 +11,66 @@ playlist_builder = {};
                                   cssSelectorAncestor: '#player-ui'
                                 }, [],
                                 {
-                                  swfPath: 'js/jplayer-2.2.0',
-                                  supplied: 'mp3,m4a',
+                                  supplied: 'mp3',
                                   wmode: 'window'
-                                });       
+                                });
 
-    playlist_builder.create = function(name, description) {
-        // TODO: call API
-        // TODO: check if name already exists
-        $('#playlist-menu').append('<li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="playlist_builder.set(\'' + name + '\');">' + name + '</a></li>');
-        this.set(name);
+    playlist_builder.add_playlists = function(playlists) {
+        // Add playlists + add links to the dropdown menu 
+        for (var name in playlists) {
+            $('#playlist-menu').append('<li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="playlist_builder.change_playlist(\'' + name + '\');">' + name + '</a></li>');
+            this.playlists[name] = playlists[name];
+        }
+        // If no playlist was selected, select one now.
+        if (this.playlist_name === undefined) {
+            this.change_playlist(Object.keys(this.playlists)[0]);
+        }
+        this.save_cookie();
     }
 
-    playlist_builder.delete = function() {
+    playlist_builder.get_playlists = function() {
+        // Store current playlist
+        if (this.playlist_name !== undefined) {
+            this.playlists[this.playlist_name] = this.playlist.playlist;
+        }
+        return this.playlists;
+    }
+
+    playlist_builder.load_cookie = function() {
+        // Load cookie and add the playlists
+        var cookie = $.cookie("playlists");
+        if (cookie !== undefined) {
+            this.add_playlists(JSON.parse(cookie));
+        } 
+        return (cookie !== undefined)
+    }
+
+    playlist_builder.save_cookie = function() {
+        // Store playlists to cookie
+        $.cookie("playlists", JSON.stringify(this.get_playlists()));
+    }
+
+    playlist_builder.import_json = function(json_string) {
+        playlists = JSON.parse(json_string);
+        this.add_playlists(playlists);
+    }
+
+    playlist_builder.export_json = function() {
+        // Download playlists as JSON file
+        var json_playlists = JSON.stringify(this.get_playlists());
+        var blob = new Blob([json_playlists], {type: "text/plain;charset=utf-8"});
+        saveAs(blob, "playlists.json");
+    }
+
+    playlist_builder.create_playlist = function(name, description) {
+        // TODO: call API
+        // TODO: check if name already exists
+        $('#playlist-menu').append('<li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="playlist_builder.change_playlist(\'' + name + '\');">' + name + '</a></li>');
+        this.change_playlist(name);
+        this.save_cookie();
+    }
+
+    playlist_builder.delete_playlist = function() {
         if (this.playlist_name !== undefined) {
             this.playlists[this.playlist_name] = this.playlist.playlist;
         }
@@ -38,13 +85,15 @@ playlist_builder = {};
         var to_delete = this.playlist_name;
         var to_show = keys[index];
 
-        this.set(to_show);
+        this.change_playlist(to_show);
 
         delete this.playlists[to_delete];
-        $('#playlist-menu > li > a[onclick="playlist_builder.set(\'' + to_delete + '\');"]').parent().remove();
+        $('#playlist-menu > li > a[onclick="playlist_builder.change_playlist(\'' + to_delete + '\');"]').parent().remove();
+
+        this.save_cookie();
     }
 
-    playlist_builder.set = function(name) {
+    playlist_builder.change_playlist = function(name) {
         if (this.playlist_name !== undefined) {
             this.playlists[this.playlist_name] = this.playlist.playlist;
         }
@@ -76,8 +125,8 @@ playlist_builder = {};
                 var item_html = '<li class="list-group-item shorten">';
 
                 item_html += '<div class="pull-right m-l btn-group">';
-                item_html += '<a href="#" onclick="playlist_builder.play(' + val['id'] + '); return false;" class="m-r-sm"><span class="glyphicon glyphicon-play"></span></a>';
-                item_html += '<a href="#" onclick="playlist_builder.add(' + val['id'] + '); return false;" class="m-r-sm"><span class="glyphicon glyphicon-plus"></span></a>';
+                item_html += '<a href="#" onclick="playlist_builder.play_track(' + val['id'] + '); return false;" class="m-r-sm"><span class="glyphicon glyphicon-play"></span></a>';
+                item_html += '<a href="#" onclick="playlist_builder.add_track(' + val['id'] + '); return false;" class="m-r-sm"><span class="glyphicon glyphicon-plus"></span></a>';
                 item_html += '</div>';
 
                 item_html += '<img src="' + val['image'] + '" alt="" class="img-thumbnail covert-art"';
@@ -90,9 +139,10 @@ playlist_builder = {};
         });
     }
 
-    playlist_builder.add = function(jamendo_id) {
+    playlist_builder.add_track = function(jamendo_id) {
         if (jamendo_id in this.search_results) {
             this.playlist.add(this.search_results[jamendo_id]);
+            this.save_cookie();
         }
         else {
             var self = this;
@@ -108,11 +158,12 @@ playlist_builder = {};
                     });
 
                 });
+                self.save_cookie();
             });   
         }
     }
 
-    playlist_builder.play = function(jamendo_id) {
+    playlist_builder.play_track = function(jamendo_id) {
         if (jamendo_id in this.search_results) {
             $(this.playlist.cssSelector.jPlayer).jPlayer("setMedia", {mp3: this.search_results[jamendo_id]['mp3']}).jPlayer("play");
         }

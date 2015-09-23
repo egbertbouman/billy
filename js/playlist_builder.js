@@ -78,6 +78,7 @@ playlist_builder = {};
         var keys = Object.keys(this.playlists);
         if (keys.length < 2) {
             bootbox.alert("You need to have multiple playlists in order to remove one.");
+            return;
         }
 
         var index = keys.indexOf(this.playlist_name);

@@ -124,7 +124,7 @@ playlist_builder = {};
         var self = this;
         var query = $("#search-query").val();
         var results = $("#search-results");
-        $.getJSON("https://api.jamendo.com/v3.0/tracks/?client_id=" + this.jamendo_client + "&limit=20&include=musicinfo&namesearch=" + query + "&groupby=artist_id", function(data) {
+        $.getJSON("https://api.jamendo.com/v3.0/tracks/?client_id=" + this.jamendo_client + "&limit=200&include=musicinfo&namesearch=" + query + "&groupby=artist_id", function(data) {
             if (!self.check_jamendo_response(data)) {
                 return;
             }
@@ -255,6 +255,16 @@ playlist_builder = {};
 
         musicinfo['tags']['instruments'].forEach(function (tag) {
             tags_html += "<span class='label label-danger'>" + tag + "</span>";
+        });
+
+        tags_html += "</td></tr><tr><td>Other:</td><td>";
+
+        if (musicinfo['tags']['vartags'].length == 0) {
+            tags_html += "n/a";
+        }
+
+        musicinfo['tags']['vartags'].forEach(function (tag) {
+            tags_html += "<span class='label label-primary'>" + tag + "</span>";
         });
 
         tags_html += "</td></tr></div>";

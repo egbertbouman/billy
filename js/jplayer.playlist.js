@@ -392,6 +392,7 @@
 								self.original.splice(index, 1);
 								self.playlist.splice(index, 1);
 							}
+							playlist_builder.save_cookie();
 
 							if(self.original.length) {
 								if(index === self.current) {

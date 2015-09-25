@@ -152,9 +152,9 @@ playlist_builder = {};
                 var tags_html = self.create_tags_popover(val['musicinfo']);
 
                 item_html += '<div class="pull-right m-l btn-group">';
+                item_html += '<a href="#" onclick="return false;" data-toggle="popover" data-placement="bottom" tabindex="0" data-trigger="focus" title="Tags" data-content="' + tags_html + '" class="m-r-sm"><span class="glyphicon glyphicon-info-sign"></span></a>';
                 item_html += '<a href="#" onclick="playlist_builder.play_track(' + val['id'] + '); return false;" class="m-r-sm"><span class="glyphicon glyphicon-play"></span></a>';
                 item_html += '<a href="#" onclick="playlist_builder.add_track(' + val['id'] + '); return false;" class="m-r-sm"><span class="glyphicon glyphicon-plus"></span></a>';
-                item_html += '<a href="#" onclick="return false;" data-toggle="popover" data-placement="bottom" tabindex="0" data-trigger="focus" title="Tags" data-content="' + tags_html + '" class="m-r-sm"><span class="glyphicon glyphicon-info-sign"></span></a>';
 
                 item_html += '</div>';
 

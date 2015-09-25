@@ -4,6 +4,7 @@ playlist_builder = {};
 
     playlist_builder.jamendo_client = '9d9f42e3';
     playlist_builder.search_results = {};
+    playlist_builder.whitelist = [];
     playlist_builder.playlists = {};
     playlist_builder.playlist_name = undefined;
     playlist_builder.playlist = new jPlayerPlaylist({
@@ -125,7 +126,15 @@ playlist_builder = {};
             if (!self.check_jamendo_response(data)) {
                 return;
             }
+            data = self.filter_jamendo_response(data);
             results.empty();
+
+            // If we do not have results, let the user know
+            if (data['results'].length == 0) {
+                results.append('No results found');
+                return;
+            }
+            // If we do have results, show them
             $.each(data['results'], function(key, val) {
 
                 self.search_results[val['id']] = {
@@ -199,6 +208,22 @@ playlist_builder = {};
             bootbox.alert('Failed to contact Jamendo server!')
         }
         return success;
+    }
+
+    playlist_builder.filter_jamendo_response = function(data) {
+        if (this.whitelist.length == 0) {
+            return data;
+        }
+
+        var i = data['results'].length;
+        while (i--) {
+            var item = data['results'][i];
+            if (this.whitelist.indexOf(item['id']) < 0) {
+                var index = data['results'].indexOf(item);
+                data['results'].splice(index, 1);
+            }
+        }
+        return data;
     }
 
 })(playlist_builder, jQuery);

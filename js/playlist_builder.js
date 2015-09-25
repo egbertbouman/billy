@@ -46,10 +46,12 @@ playlist_builder = {};
     playlist_builder.load_cookie = function() {
         // Load cookie and add the playlists
         var cookie = $.cookie("playlists");
-        if (cookie !== undefined) {
-            this.add_playlists(JSON.parse(cookie));
+        var parsed_cookie = (cookie !== undefined) ? JSON.parse(cookie) : cookie;
+        var add = parsed_cookie !== undefined && !$.isEmptyObject(parsed_cookie);
+        if (add) {
+            this.add_playlists(parsed_cookie);
         } 
-        return (cookie !== undefined)
+        return add;
     }
 
     playlist_builder.save_cookie = function() {
@@ -122,7 +124,7 @@ playlist_builder = {};
         var self = this;
         var query = $("#search-query").val();
         var results = $("#search-results");
-        $.getJSON("https://api.jamendo.com/v3.0/tracks/?client_id=" + this.jamendo_client + "&limit=20&namesearch=" + query + "&groupby=artist_id", function(data) {
+        $.getJSON("https://api.jamendo.com/v3.0/tracks/?client_id=" + this.jamendo_client + "&limit=20&include=musicinfo&namesearch=" + query + "&groupby=artist_id", function(data) {
             if (!self.check_jamendo_response(data)) {
                 return;
             }
@@ -141,14 +143,19 @@ playlist_builder = {};
                     title: val['name'],
                     artist: val['artist_name'],
                     mp3: val['audio'],
-                    poster: val['image']
+                    poster: val['image'],
+                    musicinfo: val['musicinfo']
                 };
 
                 var item_html = '<li class="list-group-item shorten">';
 
+                var tags_html = self.create_tags_popover(val['musicinfo']);
+
                 item_html += '<div class="pull-right m-l btn-group">';
                 item_html += '<a href="#" onclick="playlist_builder.play_track(' + val['id'] + '); return false;" class="m-r-sm"><span class="glyphicon glyphicon-play"></span></a>';
                 item_html += '<a href="#" onclick="playlist_builder.add_track(' + val['id'] + '); return false;" class="m-r-sm"><span class="glyphicon glyphicon-plus"></span></a>';
+                item_html += '<a href="#" onclick="return false;" data-toggle="popover" data-placement="bottom" tabindex="0" data-trigger="focus" title="Tags" data-content="' + tags_html + '" class="m-r-sm"><span class="glyphicon glyphicon-info-sign"></span></a>';
+
                 item_html += '</div>';
 
                 item_html += '<img src="' + val['image'] + '" alt="" class="img-thumbnail covert-art"';
@@ -158,6 +165,7 @@ playlist_builder = {};
 
                 $(item_html).appendTo(results);
             });
+          $("[data-toggle=popover]").popover({ html : true, container: 'body'});
         });
     }
 
@@ -178,7 +186,8 @@ playlist_builder = {};
                         title: val['name'],
                         artist: val['artist_name'],
                         mp3: val['audio'],
-                        poster: val['image']
+                        poster: val['image'],
+                        musicinfo: val['musicinfo']
                     });
 
                 });
@@ -226,6 +235,31 @@ playlist_builder = {};
         return data;
     }
 
+    playlist_builder.create_tags_popover = function(musicinfo) {
+        tags_html = "<div class='tags-container'>" +
+                    "<table><tr><td>Genres:</td><td>";
+
+        if (musicinfo['tags']['genres'].length == 0) {
+            tags_html += "n/a";
+        }
+
+        musicinfo['tags']['genres'].forEach(function (tag) {
+            tags_html += "<span class='label label-success'>" + tag + "</span>";
+        });
+
+        tags_html += "</td></tr><tr><td>Instruments:</td><td>";
+
+        if (musicinfo['tags']['instruments'].length == 0) {
+            tags_html += "n/a";
+        }
+
+        musicinfo['tags']['instruments'].forEach(function (tag) {
+            tags_html += "<span class='label label-danger'>" + tag + "</span>";
+        });
+
+        tags_html += "</td></tr></div>";
+
+        return tags_html;
+    }
+
 })(playlist_builder, jQuery);
-
-

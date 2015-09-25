@@ -210,15 +210,14 @@
             }
       });
 
-      $(document).ready(function() {
+      $(playlist_builder.playlist.cssSelector.jPlayer).bind($.jPlayer.event.ready, function() {
+        $.ajaxSetup({cache: false});
         $.getJSON('whitelist.json', function(json) {
           // Set the whitelist. In case the whitelist is empty, filtering is disabled.
           playlist_builder.whitelist = json;
-          $(playlist_builder.playlist.cssSelector.jPlayer).bind($.jPlayer.event.ready, function() {
-            if (!playlist_builder.load_cookie()) {
-                playlist_builder.create_playlist('Default', '');
-            }
-          });
+          if (!playlist_builder.load_cookie()) {
+              playlist_builder.create_playlist('Default', '');
+          }
         });
       });
 

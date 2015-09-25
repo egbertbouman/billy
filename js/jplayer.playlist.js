@@ -254,6 +254,7 @@
 		    listItem += '<div class="pull-right m-l btn-group">';
             listItem += '<a href="#" class="m-r-sm ' + this.options.playlistOptions.itemClass +'"><span class="glyphicon glyphicon-play"></span></a>';
             listItem += '<a href="#" class="m-r-sm ' + this.options.playlistOptions.removeItemClass +'"><span class="glyphicon glyphicon-remove"></span></a>';
+            listItem += '<a href="#" onclick="return false;" data-toggle="popover" data-placement="bottom" tabindex="0" data-trigger="focus" title="Tags" data-content="' + playlist_builder.create_tags_popover(media['musicinfo']) + '" class="m-r-sm"><span class="glyphicon glyphicon-info-sign"></span></a>';
             listItem += '</div>';
 
 			// Create links to free media
@@ -330,6 +331,7 @@
 					$(this.cssSelector.shuffle).show();
 				}
 			}
+			$("[data-toggle=popover]").popover({ html : true, container: 'body'});
 		},
 		_highlight: function(index) {
 			if(this.playlist.length && index !== undefined) {

@@ -305,7 +305,7 @@
 			// Create live handlers for the remove controls
 			$(this.cssSelector.playlist).off("click", "a." + this.options.playlistOptions.removeItemClass).on("click", "a." + this.options.playlistOptions.removeItemClass, function(e) {
 				e.preventDefault();
-				var index = $(this).parent().parent().parent().index();
+				var index = $(this).parent().parent().index();
 				self.remove(index);
 				self.blur(this);
 			});

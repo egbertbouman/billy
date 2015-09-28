@@ -72,11 +72,11 @@ body {
 	color: #555;
 }
 
-#search-results a, #playlist a {
-	color: #888;
+#search a, #recommend a, #playlist a {
+	color: #337ab7;
 }
-#search-results a:hover, #playlist a:hover {
-	color: #666;
+#search a:hover, #recommend a:hover, #playlist a:hover {
+	color: #286591;
 }
 
 .covert-art {

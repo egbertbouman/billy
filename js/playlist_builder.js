@@ -118,22 +118,40 @@ playlist_builder = {};
         }
         this.playlist_name = name;
         $('#playlist-menu-button').html('Playlist: ' + name + ' <span class="caret"></span>');
+        this.recommend();
+    }
+
+    playlist_builder.change_results = function(name) {
+        var tab = $('#' + name);
+        $('#results-menu-button').html(tab.attr('name') + ' <span class="caret"></span>');
+        $('.tab-pane').each(function (item) {
+            $(this).hide();
+        });
+        $(tab).show();
     }
 
     playlist_builder.search = function() {
-        var self = this;
         var query = $("#search-query").val();
-        var results = $("#search-results");
-        $.getJSON("https://api.jamendo.com/v3.0/tracks/?client_id=" + this.jamendo_client + "&limit=200&include=musicinfo&namesearch=" + query + "&groupby=artist_id", function(data) {
+        this.call_jamendo("https://api.jamendo.com/v3.0/tracks/?client_id=" + this.jamendo_client + "&limit=200&include=musicinfo&namesearch=" + query + "&groupby=artist_id", $("#search"));
+    }
+
+    playlist_builder.recommend = function() {
+        var tags = ['rock'];
+        this.call_jamendo("https://api.jamendo.com/v3.0/tracks/?client_id=" + this.jamendo_client + "&limit=200&include=musicinfo&tags=" + tags, $("#recommend"));
+    }
+
+    playlist_builder.call_jamendo = function (url, target) {
+        var self = this;
+        $.getJSON(url, function(data) {
             if (!self.check_jamendo_response(data)) {
                 return;
             }
             data = self.filter_jamendo_response(data);
-            results.empty();
+            target.empty();
 
             // If we do not have results, let the user know
             if (data['results'].length == 0) {
-                results.append('No results found');
+                target.append('No results found');
                 return;
             }
             // If we do have results, show them
@@ -172,7 +190,7 @@ playlist_builder = {};
 
                 item_html += '</li>';
 
-                $(item_html).appendTo(results);
+                $(item_html).appendTo(target);
             });
           $("[data-toggle=popover]").popover({ html : true, container: 'body'});
         });

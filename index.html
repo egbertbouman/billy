@@ -106,18 +106,18 @@
 
         <div class="dropdown">
           <div class="btn-group">
-            <button class="btn btn-default dropdown-toggle" type="button" id="search-menu-button" data-toggle="dropdown">Search results
+            <button class="btn btn-default dropdown-toggle" type="button" id="results-menu-button" data-toggle="dropdown">Search results
             <span class="caret"></span></button>
-            <ul class="dropdown-menu" role="menu" aria-labelledby="search-menu-button" id="search-menu">
-              <li role="presentation"><a role="menuitem" tabindex="-1" href="#search-results">Search results</a></li>
-              <li role="presentation"><a role="menuitem" tabindex="-1" href="#recommendations">Recommendations</a></li>
+            <ul class="dropdown-menu" role="menu" aria-labelledby="results-menu-button" id="results-menu">
+              <li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="playlist_builder.change_results('search'); return false;">Search results</a></li>
+              <li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="playlist_builder.change_results('recommend'); return false">Recommendations</a></li>
             </ul>
 
           </div>
         </div>
         <div class="tab-content">
-          <div class="tab-pane fade in active list-group" id="search-results"></div>
-          <div class="tab-pane fade in list-group" id="recommendations"></div>
+          <div class="tab-pane fade in active list-group" id="search" name="Search results"></div>
+          <div class="tab-pane fade in list-group" id="recommend" name="Recommendations"></div>
         </div>
       </div>
 
@@ -201,15 +201,6 @@
   <script src="js/playlist_builder.js"></script>
 
   <script type="text/javascript">
-
-      $('#search-menu a').click(function (evt) {
-          evt.preventDefault();
-          $('#search-menu-button').html($(this).text() + ' <span class="caret"></span>');
-          $('.tab-pane').each(function (item) {
-              $(this).hide();
-          });
-          $($(this).attr('href')).show();
-      });
 
       $("#search-query").keypress(function(evt) {
           if(evt.which === 13) {

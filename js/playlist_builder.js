@@ -139,6 +139,15 @@ playlist_builder = {};
             // If we do have results, show them
             $.each(data['results'], function(key, val) {
 
+                if (!('tags' in val['musicinfo']))
+                    val['musicinfo']['tags'] = {};
+                if (!('genres' in val['musicinfo']['tags']))
+                    val['musicinfo']['tags']['genres'] = [];
+                if (!('instruments' in val['musicinfo']['tags']))
+                    val['musicinfo']['tags']['instruments'] = [];
+                if (!('vartags' in val['musicinfo']['tags']))
+                    val['musicinfo']['tags']['vartags'] = [];
+
                 self.search_results[val['id']] = {
                     title: val['name'],
                     artist: val['artist_name'],

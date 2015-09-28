@@ -3,23 +3,61 @@ import sys
 import json
 import urllib
 import argparse
+import requests
 import cherrypy
 
 
 class WebAPI(object):
 
+    jamendo_url = 'https://api.jamendo.com/v3.0/tracks/'
+    client_id = '9d9f42e3'
+
     def __init__(self, dataset):
         self.dataset = dataset
+        self.dataset_dict = {item['id']: item for item in dataset}
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def tracks(self, namesearch=None, fuzzytags=None):
-        return {'Test': 'Got namesearch=%s, fuzzytags=%s' % (namesearch, fuzzytags)}
+        params = {'client_id': self.client_id,
+                  'limit': 200,
+                  'include': 'musicinfo',
+                  'groupby': 'artist_id'}
+
+        if namesearch:
+            params['namesearch'] = namesearch
+        elif fuzzytags:
+            params['fuzzytags'] = fuzzytags
+        else:
+            return {'Error': 'Please provide a namesearch or fuzzytags value'}
+
+        response = requests.get(self.jamendo_url, params=params).json()
+        if 'headers' in response and response['headers'].get('status', 'error') == 'success':
+            response['results'] = [item for item in response['results'] if item['id'] in self.dataset_dict]
+            response['headers']['results_count'] = len(response['results'])
+        return response
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def recommend(self, description, tracks):
-        return {'Test': 'Got description=%s, tracks=%s' % (description, tracks)}
+        genres = set()
+        for track_id in json.loads(tracks):
+            track_id = unicode(track_id)
+            if track_id in self.dataset_dict:
+                track = self.dataset_dict[track_id]
+                for genre in track['musicinfo']['tags'].get('genres', []):
+                    genres.add(genre)
+
+        params = {'client_id': self.client_id,
+                  'limit': 200,
+                  'include': 'musicinfo',
+                  'tags': list(genres)}
+
+        response = requests.get(self.jamendo_url, params=params).json()
+        if 'headers' in response and response['headers'].get('status', 'error') == 'success':
+            response['results'] = [item for item in response['results'] if item['id'] in self.dataset_dict and item['id'] not in tracks]
+            response['headers']['results_count'] = len(response['results'])
+        return response
 
 
 def main(argv):

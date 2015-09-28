@@ -79,10 +79,12 @@ body {
 	color: #286591;
 }
 
-.covert-art {
-  width: 70px;
-  height: 70px;
-  margin: 0 10px;
+.cover-art {
+    margin: 0 10px;
+}
+.cover-art img {
+    width: 60px;
+    height: 60px;
 }
 .shorten {
     overflow: hidden;
@@ -103,4 +105,27 @@ body {
 }
 .tags-container .label {
 	margin-right: 2px;
+}
+
+span.rollover {
+    opacity: 1;
+    -o-transition-duration: 1s;
+    -moz-transition-duration: 1s;
+    -webkit-transition: -webkit-transform 1s;
+    background: url(../img/overlay-icon.png) center center no-repeat #000;
+    cursor: pointer;
+    height: 60px;
+    width: 60px;
+    position: absolute;
+    z-index: 10;
+    opacity: 0;
+}
+span.rollover:hover {
+    opacity: .6;
+    -o-transition-duration: 1s;
+    -moz-transition-duration: 1s;
+    -webkit-transition: -webkit-transform 1s;
+/*    -webkit-box-shadow: 0px 0px 4px #000;
+    -moz-box-shadow: 0px 0px 4px #000;
+    box-shadow: 0px 0px 4px #000;*/
 }

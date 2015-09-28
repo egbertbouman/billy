@@ -185,8 +185,8 @@ playlist_builder = {};
 
                 item_html += '</div>';
 
-                item_html += '<img src="' + val['image'] + '" alt="" class="img-thumbnail covert-art"';
-                item_html += '<a href="javascript:;" class="jp-playlist-item" tabindex="0">' + val['name'] + ' - ' + val['artist_name'] + '</a>';
+                item_html += '<a class="img-thumbnail cover-art" href="#" onclick="playlist_builder.play_track(' + val['id'] + '); return false;" ><span class="rollover"></span><img alt="" src=' + val['image'] + '></a>';
+                item_html += val['name'] + ' - ' + val['artist_name'];
 
                 item_html += '</li>';
 

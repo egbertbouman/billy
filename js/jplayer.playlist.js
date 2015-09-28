@@ -275,7 +275,7 @@
 			}
 
 			// The title is given next in the HTML otherwise the float:right on the free media corrupts in IE6/7
-            listItem += '<img src="' + media.poster + '" alt="" class="img-thumbnail covert-art">';
+            listItem += '<a class="img-thumbnail cover-art ' + this.options.playlistOptions.itemClass +'" href="#"><span class="rollover"></span><img alt="" src=' + media.poster + '></a>';
 			listItem += media.title + ' - ' + media.artist;
 			listItem += "</li></a>";
 
@@ -286,7 +286,7 @@
 			// Create live handlers for the playlist items
 			$(this.cssSelector.playlist).off("click", "a." + this.options.playlistOptions.itemClass).on("click", "a." + this.options.playlistOptions.itemClass, function(e) {
 				e.preventDefault();
-				var index = $(this).parent().parent().index();
+				var index = $(this).parents('.list-group-item').index();
 				if(self.current !== index) {
 					self.play(index);
 				} else {

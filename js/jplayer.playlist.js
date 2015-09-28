@@ -252,7 +252,7 @@
 
 			// Create play/remove controls
 		    listItem += '<div class="pull-right m-l btn-group">';
-            listItem += '<a href="#" onclick="return false;" data-toggle="popover" data-placement="bottom" tabindex="0" data-trigger="focus" title="Tags" data-content="' + playlist_builder.create_tags_popover(media['musicinfo']) + '" class="m-r-sm"><span class="glyphicon glyphicon-info-sign"></span></a>';
+            listItem += '<a href="#" onclick="return false;" data-toggle="popover" data-placement="bottom" tabindex="0" data-trigger="focus" title="Tags" data-content="' + billy.create_tags_popover(media['musicinfo']) + '" class="m-r-sm"><span class="glyphicon glyphicon-info-sign"></span></a>';
             listItem += '<a href="#" class="m-r-sm ' + this.options.playlistOptions.itemClass +'"><span class="glyphicon glyphicon-play"></span></a>';
             listItem += '<a href="#" class="m-r-sm ' + this.options.playlistOptions.removeItemClass +'"><span class="glyphicon glyphicon-remove"></span></a>';
             listItem += '</div>';
@@ -392,7 +392,7 @@
 								self.original.splice(index, 1);
 								self.playlist.splice(index, 1);
 							}
-							playlist_builder.save_cookie();
+							billy.save_cookie();
 
 							if(self.original.length) {
 								if(index === self.current) {

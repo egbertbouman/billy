@@ -1,22 +1,22 @@
-playlist_builder = {};
+billy = {};
 
-(function(playlist_builder, $) {
+(function(billy, $) {
 
-    playlist_builder.jamendo_client = '9d9f42e3';
-    playlist_builder.search_results = {};
-    playlist_builder.whitelist = [];
-    playlist_builder.playlists = {};
-    playlist_builder.playlist_name = undefined;
-    playlist_builder.playlist = new jPlayerPlaylist({
-                                  jPlayer: '#player-core',
-                                  cssSelectorAncestor: '#player-ui'
-                                }, [],
-                                {
-                                  supplied: 'mp3',
-                                  wmode: 'window'
-                                });
+    billy.jamendo_client = '9d9f42e3';
+    billy.search_results = {};
+    billy.whitelist = [];
+    billy.playlists = {};
+    billy.playlist_name = undefined;
+    billy.playlist = new jPlayerPlaylist({
+                     jPlayer: '#player-core',
+                     cssSelectorAncestor: '#player-ui'
+                     }, [],
+                     {
+                     supplied: 'mp3',
+                     wmode: 'window'
+                     });
 
-    playlist_builder.add_playlists = function(playlists) {
+    billy.add_playlists = function(playlists) {
         // Add playlists + add links to the dropdown menu 
         var skipped = [];
         for (var name in playlists) {
@@ -24,7 +24,7 @@ playlist_builder = {};
                 skipped.push(name);
                 continue;
             }
-            $('#playlist-menu').append('<li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="playlist_builder.change_playlist(\'' + name + '\');">' + name + '</a></li>');
+            $('#playlist-menu').append('<li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="billy.change_playlist(\'' + name + '\');">' + name + '</a></li>');
             this.playlists[name] = playlists[name];
         }
         // If no playlist was selected, select one now.
@@ -35,7 +35,7 @@ playlist_builder = {};
         return skipped;
     }
 
-    playlist_builder.get_playlists = function() {
+    billy.get_playlists = function() {
         // Store current playlist
         if (this.playlist_name !== undefined) {
             this.playlists[this.playlist_name] = this.playlist.playlist;
@@ -43,7 +43,7 @@ playlist_builder = {};
         return this.playlists;
     }
 
-    playlist_builder.load_cookie = function() {
+    billy.load_cookie = function() {
         // Load cookie and add the playlists
         var cookie = $.cookie("playlists");
         var parsed_cookie = (cookie !== undefined) ? JSON.parse(cookie) : cookie;
@@ -54,12 +54,12 @@ playlist_builder = {};
         return add;
     }
 
-    playlist_builder.save_cookie = function() {
+    billy.save_cookie = function() {
         // Store playlists to cookie
         $.cookie("playlists", JSON.stringify(this.get_playlists()));
     }
 
-    playlist_builder.import_json = function(json_string) {
+    billy.import_json = function(json_string) {
         playlists = JSON.parse(json_string);
         var skipped = this.add_playlists(playlists);
         if (skipped.length > 0) {
@@ -67,22 +67,22 @@ playlist_builder = {};
         }
     }
 
-    playlist_builder.export_json = function() {
+    billy.export_json = function() {
         // Download playlists as JSON file
         var json_playlists = JSON.stringify(this.get_playlists());
         var blob = new Blob([json_playlists], {type: "text/plain;charset=utf-8"});
         saveAs(blob, "playlists.json");
     }
 
-    playlist_builder.create_playlist = function(name, description) {
+    billy.create_playlist = function(name, description) {
         // TODO: call API
         // TODO: check if name already exists
-        $('#playlist-menu').append('<li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="playlist_builder.change_playlist(\'' + name + '\');">' + name + '</a></li>');
+        $('#playlist-menu').append('<li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="billy.change_playlist(\'' + name + '\');">' + name + '</a></li>');
         this.change_playlist(name);
         this.save_cookie();
     }
 
-    playlist_builder.delete_playlist = function() {
+    billy.delete_playlist = function() {
         if (this.playlist_name !== undefined) {
             this.playlists[this.playlist_name] = this.playlist.playlist;
         }
@@ -101,12 +101,12 @@ playlist_builder = {};
         this.change_playlist(to_show);
 
         delete this.playlists[to_delete];
-        $('#playlist-menu > li > a[onclick="playlist_builder.change_playlist(\'' + to_delete + '\');"]').parent().remove();
+        $('#playlist-menu > li > a[onclick="billy.change_playlist(\'' + to_delete + '\');"]').parent().remove();
 
         this.save_cookie();
     }
 
-    playlist_builder.change_playlist = function(name) {
+    billy.change_playlist = function(name) {
         if (this.playlist_name !== undefined) {
             this.playlists[this.playlist_name] = this.playlist.playlist;
         }
@@ -121,7 +121,7 @@ playlist_builder = {};
         this.recommend();
     }
 
-    playlist_builder.change_results = function(name) {
+    billy.change_results = function(name) {
         var tab = $('#' + name);
         $('#results-menu-button').html(tab.attr('name') + ' <span class="caret"></span>');
         $('.tab-pane').each(function (item) {
@@ -130,17 +130,17 @@ playlist_builder = {};
         $(tab).show();
     }
 
-    playlist_builder.search = function() {
+    billy.search = function() {
         var query = $("#search-query").val();
         this.call_jamendo("https://api.jamendo.com/v3.0/tracks/?client_id=" + this.jamendo_client + "&limit=200&include=musicinfo&namesearch=" + query + "&groupby=artist_id", $("#search"));
     }
 
-    playlist_builder.recommend = function() {
+    billy.recommend = function() {
         var tags = ['rock'];
         this.call_jamendo("https://api.jamendo.com/v3.0/tracks/?client_id=" + this.jamendo_client + "&limit=200&include=musicinfo&tags=" + tags, $("#recommend"));
     }
 
-    playlist_builder.call_jamendo = function (url, target) {
+    billy.call_jamendo = function (url, target) {
         var self = this;
         $.getJSON(url, function(data) {
             if (!self.check_jamendo_response(data)) {
@@ -180,12 +180,12 @@ playlist_builder = {};
 
                 item_html += '<div class="pull-right m-l btn-group">';
                 item_html += '<a href="#" onclick="return false;" data-toggle="popover" data-placement="bottom" tabindex="0" data-trigger="focus" title="Tags" data-content="' + tags_html + '" class="m-r-sm"><span class="glyphicon glyphicon-info-sign"></span></a>';
-                item_html += '<a href="#" onclick="playlist_builder.play_track(' + val['id'] + '); return false;" class="m-r-sm"><span class="glyphicon glyphicon-play"></span></a>';
-                item_html += '<a href="#" onclick="playlist_builder.add_track(' + val['id'] + '); return false;" class="m-r-sm"><span class="glyphicon glyphicon-plus"></span></a>';
+                item_html += '<a href="#" onclick="billy.play_track(' + val['id'] + '); return false;" class="m-r-sm"><span class="glyphicon glyphicon-play"></span></a>';
+                item_html += '<a href="#" onclick="billy.add_track(' + val['id'] + '); return false;" class="m-r-sm"><span class="glyphicon glyphicon-plus"></span></a>';
 
                 item_html += '</div>';
 
-                item_html += '<a class="img-thumbnail cover-art" href="#" onclick="playlist_builder.play_track(' + val['id'] + '); return false;" ><span class="rollover"></span><img alt="" src=' + val['image'] + '></a>';
+                item_html += '<a class="img-thumbnail cover-art" href="#" onclick="billy.play_track(' + val['id'] + '); return false;" ><span class="rollover"></span><img alt="" src=' + val['image'] + '></a>';
                 item_html += val['name'] + ' - ' + val['artist_name'];
 
                 item_html += '</li>';
@@ -196,7 +196,7 @@ playlist_builder = {};
         });
     }
 
-    playlist_builder.add_track = function(jamendo_id) {
+    billy.add_track = function(jamendo_id) {
         if (jamendo_id in this.search_results) {
             this.playlist.add(this.search_results[jamendo_id]);
             this.save_cookie();
@@ -223,7 +223,7 @@ playlist_builder = {};
         }
     }
 
-    playlist_builder.play_track = function(jamendo_id) {
+    billy.play_track = function(jamendo_id) {
         if (jamendo_id in this.search_results) {
             $(this.playlist.cssSelector.jPlayer).jPlayer("setMedia", {mp3: this.search_results[jamendo_id]['mp3']}).jPlayer("play");
         }
@@ -238,7 +238,7 @@ playlist_builder = {};
         }
     }
 
-    playlist_builder.check_jamendo_response = function(data) {
+    billy.check_jamendo_response = function(data) {
         var success = ('headers' in data && 'status' in data['headers'] && data['headers']['status'] === 'success');
         if (!success) {
             bootbox.alert('Failed to contact Jamendo server!')
@@ -246,7 +246,7 @@ playlist_builder = {};
         return success;
     }
 
-    playlist_builder.filter_jamendo_response = function(data) {
+    billy.filter_jamendo_response = function(data) {
         if (this.whitelist.length == 0) {
             return data;
         }
@@ -262,7 +262,7 @@ playlist_builder = {};
         return data;
     }
 
-    playlist_builder.create_tags_popover = function(musicinfo) {
+    billy.create_tags_popover = function(musicinfo) {
         tags_html = "<div class='tags-container'>" +
                     "<table><tr><td>Genres:</td><td>";
 
@@ -299,4 +299,4 @@ playlist_builder = {};
         return tags_html;
     }
 
-})(playlist_builder, jQuery);
+})(billy, jQuery);

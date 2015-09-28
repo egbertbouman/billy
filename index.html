@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>Playlist builder</title>
+    <title>Billy</title>
     
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -29,7 +29,7 @@
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
           </button>
-          <a class="navbar-brand" href="#">Playlist builder</a>
+          <a class="navbar-brand" href="#">Billy</a>
         </div>
         
         <div id="navbar" class="collapse navbar-collapse">
@@ -38,7 +38,7 @@
               <div class="input-group" style="display:table;">
                 <input id="search-query" class="form-control" placeholder="Search for artists, bands, and tracks">
                 <span class="input-group-btn" style="width:1%;">
-                  <button id="search-button" class="btn btn-default" type="button" onclick="playlist_builder.search();">Go!</button>
+                  <button id="search-button" class="btn btn-default" type="button" onclick="billy.search();">Go!</button>
                 </span>
               </div>
             </div>
@@ -109,8 +109,8 @@
             <button class="btn btn-default dropdown-toggle" type="button" id="results-menu-button" data-toggle="dropdown">Search results
             <span class="caret"></span></button>
             <ul class="dropdown-menu" role="menu" aria-labelledby="results-menu-button" id="results-menu">
-              <li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="playlist_builder.change_results('search'); return false;">Search results</a></li>
-              <li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="playlist_builder.change_results('recommend'); return false">Recommendations</a></li>
+              <li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="billy.change_results('search'); return false;">Search results</a></li>
+              <li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="billy.change_results('recommend'); return false">Recommendations</a></li>
             </ul>
 
           </div>
@@ -131,9 +131,9 @@
             </ul>
  
             <button type="button" class="btn btn-default" data-toggle="modal" data-target="#new-playlist-modal">Create</button>
-            <button type="button" class="btn btn-default" href="#" onclick="playlist_builder.delete_playlist();">Delete</button>
+            <button type="button" class="btn btn-default" href="#" onclick="billy.delete_playlist();">Delete</button>
             <button type="button" class="btn btn-default" href="#" onclick="document.getElementById('file').click();">Import</button>
-            <button type="button" class="btn btn-default" href="#" onclick="playlist_builder.export_json();">Export all</button>
+            <button type="button" class="btn btn-default" href="#" onclick="billy.export_json();">Export all</button>
 
             <input type='file' id='file' name='file' style='display: none;'/>
 
@@ -198,7 +198,7 @@
   <script src="js/jquery.jplayer.min.js"></script>
   <script src="js/jplayer.playlist.js"></script>
 
-  <script src="js/playlist_builder.js"></script>
+  <script src="js/billy.js"></script>
 
   <script type="text/javascript">
 
@@ -219,7 +219,7 @@
               // Reset control
               $('input[type=file]').val(null);
               reader.onload = function (evt) {
-                  playlist_builder.import_json(evt.target.result);
+                  billy.import_json(evt.target.result);
               }
               reader.onerror = function (evt) {
                   bootbox.alert('Could not read file!');
@@ -227,12 +227,12 @@
             }
       });
 
-      $(playlist_builder.playlist.cssSelector.jPlayer).bind($.jPlayer.event.ready, function() {
+      $(billy.playlist.cssSelector.jPlayer).bind($.jPlayer.event.ready, function() {
         $.getJSON('whitelist.json', function(json) {
           // Set the whitelist. In case the whitelist is empty, filtering is disabled.
-          playlist_builder.whitelist = json;
-          if (!playlist_builder.load_cookie()) {
-              playlist_builder.create_playlist('Default', '');
+          billy.whitelist = json;
+          if (!billy.load_cookie()) {
+              billy.create_playlist('Default', '');
           }
         });
       });
@@ -242,11 +242,11 @@
           var name = $('#playlist-name').val();
           var description = $('#playlist-description').val();
           // TODO: use form validation for handling duplicate playlist names
-          if (name in playlist_builder.playlists) {
+          if (name in billy.playlists) {
             bootbox.alert('You already have a playlist called ' + name + '.');
           }
           else {
-            playlist_builder.create_playlist(name, description);
+            billy.create_playlist(name, description);
           }
           $('#new-playlist-modal').modal('hide');
           $('#new-playlist-modal').find('form')[0].reset();

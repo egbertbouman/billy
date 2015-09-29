@@ -228,11 +228,7 @@
       });
 
       $(billy.playlist.cssSelector.jPlayer).bind($.jPlayer.event.ready, function() {
-        $.getJSON('whitelist.json', function(json) {
-          // Set the whitelist. In case the whitelist is empty, filtering is disabled.
-          billy.whitelist = json;
-          billy.load_from_server();
-        });
+        billy.load_from_server();
       });
 
       $('#new-playlist-form').submit(function (evt) {

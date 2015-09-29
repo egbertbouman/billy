@@ -9,7 +9,6 @@ billy = {};
 
     billy.token = undefined;
     billy.search_results = {};
-    billy.whitelist = [];
     billy.playlists = {};
     billy.playlist_name = undefined;
     billy.playlist = new jPlayerPlaylist({
@@ -174,7 +173,6 @@ billy = {};
             if (!self.check_api_response(data)) {
                 return;
             }
-            data = self.filter_jamendo_response(data);
             target.empty();
 
             // If we do not have results, let the user know
@@ -272,22 +270,6 @@ billy = {};
             bootbox.alert('Failed to contact Jamendo server!')
         }
         return success;
-    }
-
-    billy.filter_jamendo_response = function(data) {
-        if (this.whitelist.length == 0) {
-            return data;
-        }
-
-        var i = data['results'].length;
-        while (i--) {
-            var item = data['results'][i];
-            if (this.whitelist.indexOf(item['id']) < 0) {
-                var index = data['results'].indexOf(item);
-                data['results'].splice(index, 1);
-            }
-        }
-        return data;
     }
 
     billy.create_tags_popover = function(musicinfo) {

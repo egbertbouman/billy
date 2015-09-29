@@ -231,9 +231,7 @@
         $.getJSON('whitelist.json', function(json) {
           // Set the whitelist. In case the whitelist is empty, filtering is disabled.
           billy.whitelist = json;
-          if (!billy.load_cookie()) {
-              billy.create_playlist('Default', '');
-          }
+          billy.load_from_server();
         });
       });
 

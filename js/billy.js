@@ -1,20 +1,28 @@
+String.prototype.format = function () {
+  var args = arguments;
+  return this.replace(/\{(\d+)\}/g, function (m, n) { return args[n]; });
+};
+
 billy = {};
 
 (function(billy, $) {
 
-    billy.jamendo_client = '9d9f42e3';
+    billy.token = undefined;
     billy.search_results = {};
     billy.whitelist = [];
     billy.playlists = {};
     billy.playlist_name = undefined;
     billy.playlist = new jPlayerPlaylist({
-                     jPlayer: '#player-core',
-                     cssSelectorAncestor: '#player-ui'
-                     }, [],
-                     {
-                     supplied: 'mp3',
-                     wmode: 'window'
+                         jPlayer: '#player-core',
+                         cssSelectorAncestor: '#player-ui'
+                     }, [], {
+                         supplied: 'mp3',
+                         wmode: 'window'
                      });
+    billy.api_base = 'http://localhost:7777';
+    billy.api_session = billy.api_base + '/session';
+    billy.api_playlists = billy.api_base + '/playlists?token={0}&search={1}';
+    billy.api_tracks = billy.api_base + '/tracks?namesearch={0}&fuzzytags={1}&id={2}';
 
     billy.add_playlists = function(playlists) {
         // Add playlists + add links to the dropdown menu 
@@ -31,7 +39,7 @@ billy = {};
         if (this.playlist_name === undefined) {
             this.change_playlist(Object.keys(this.playlists)[0]);
         }
-        this.save_cookie();
+        this.save_to_server();
         return skipped;
     }
 
@@ -43,20 +51,40 @@ billy = {};
         return this.playlists;
     }
 
-    billy.load_cookie = function() {
-        // Load cookie and add the playlists
-        var cookie = $.cookie("playlists");
-        var parsed_cookie = (cookie !== undefined) ? JSON.parse(cookie) : cookie;
-        var add = parsed_cookie !== undefined && !$.isEmptyObject(parsed_cookie);
-        if (add) {
-            this.add_playlists(parsed_cookie);
-        } 
-        return add;
+    billy.load_from_server = function() {
+        var self = this;
+
+        this.token = $.cookie('token');
+        if (this.token !== undefined) {
+            // Load playlists from server and show them to the user
+            $.getJSON(self.api_playlists.format(this.token, ''), function(data) {
+                self.add_playlists(data);
+            })
+            .fail(function() {
+                // No remote playlists available. Create a default (empty) playlist.
+                self.create_playlist('Default', '');
+            });
+        }
+        else {
+            $.getJSON(self.api_session, function(data) {
+                self.token = data['token'];
+                $.cookie('token', self.token);
+                self.create_playlist('Default', '');
+            })
+        }
     }
 
-    billy.save_cookie = function() {
-        // Store playlists to cookie
-        $.cookie("playlists", JSON.stringify(this.get_playlists()));
+    billy.save_to_server = function() {
+        // Store playlists in remote database
+        $.ajax({
+            type: 'POST',
+            url: this.api_playlists.format(this.token, ''),
+            contentType: "application/json",
+            processData: false,
+            data: JSON.stringify(this.get_playlists()),
+            error: function() { bootbox.alert('Failed to contant Billy server') },
+            dataType: "text"
+        });
     }
 
     billy.import_json = function(json_string) {
@@ -75,11 +103,9 @@ billy = {};
     }
 
     billy.create_playlist = function(name, description) {
-        // TODO: call API
-        // TODO: check if name already exists
         $('#playlist-menu').append('<li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="billy.change_playlist(\'' + name + '\');">' + name + '</a></li>');
         this.change_playlist(name);
-        this.save_cookie();
+        this.save_to_server();
     }
 
     billy.delete_playlist = function() {
@@ -103,7 +129,7 @@ billy = {};
         delete this.playlists[to_delete];
         $('#playlist-menu > li > a[onclick="billy.change_playlist(\'' + to_delete + '\');"]').parent().remove();
 
-        this.save_cookie();
+        this.save_to_server();
     }
 
     billy.change_playlist = function(name) {
@@ -132,18 +158,18 @@ billy = {};
 
     billy.search = function() {
         var query = $("#search-query").val();
-        this.call_jamendo("https://api.jamendo.com/v3.0/tracks/?client_id=" + this.jamendo_client + "&limit=200&include=musicinfo&namesearch=" + query + "&groupby=artist_id", $("#search"));
+        this.call_api(this.api_tracks.format(query, '', ''), $("#search"));
     }
 
     billy.recommend = function() {
         var tags = ['rock'];
-        this.call_jamendo("https://api.jamendo.com/v3.0/tracks/?client_id=" + this.jamendo_client + "&limit=200&include=musicinfo&tags=" + tags, $("#recommend"));
+        this.call_api(this.api_tracks.format('', tags, ''), $("#recommend"));
     }
 
-    billy.call_jamendo = function (url, target) {
+    billy.call_api = function (url, target) {
         var self = this;
         $.getJSON(url, function(data) {
-            if (!self.check_jamendo_response(data)) {
+            if (!self.check_api_response(data)) {
                 return;
             }
             data = self.filter_jamendo_response(data);
@@ -199,12 +225,12 @@ billy = {};
     billy.add_track = function(jamendo_id) {
         if (jamendo_id in this.search_results) {
             this.playlist.add(this.search_results[jamendo_id]);
-            this.save_cookie();
+            this.save_to_server();
         }
         else {
             var self = this;
-            $.getJSON("https://api.jamendo.com/v3.0/tracks/?client_id=" + self.jamendo_client + "&id=" + jamendo_id, function(data) {
-                if (!self.check_jamendo_response(data)) {
+            $.getJSON(this.api_tracks.format('', '', jamendo_id), function(data) {
+                if (!self.check_api_response(data)) {
                     return;
                 }
                 $.each(data['results'], function(key, val) {
@@ -218,7 +244,7 @@ billy = {};
                     });
 
                 });
-                self.save_cookie();
+                self.save_to_server();
             });   
         }
     }
@@ -229,8 +255,8 @@ billy = {};
         }
         else {
             var self = this;
-            $.getJSON("https://api.jamendo.com/v3.0/tracks/?client_id=" + self.jamendo_client + "&id=" + jamendo_id, function(data) {
-                if (!self.check_jamendo_response(data)) {
+            $.getJSON(this.api_tracks.format('', '', jamendo_id), function(data) {
+                if (!self.check_api_response(data)) {
                     return;
                 }
                 $(self.playlist.cssSelector.jPlayer).jPlayer("setMedia", {mp3: data['results'][0]['audio']}).jPlayer("play");
@@ -238,7 +264,7 @@ billy = {};
         }
     }
 
-    billy.check_jamendo_response = function(data) {
+    billy.check_api_response = function(data) {
         var success = ('headers' in data && 'status' in data['headers'] && data['headers']['status'] === 'success');
         if (!success) {
             bootbox.alert('Failed to contact Jamendo server!')

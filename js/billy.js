@@ -18,7 +18,7 @@ billy = {};
                          supplied: 'mp3',
                          wmode: 'window'
                      });
-    billy.api_base = 'http://localhost:7777';
+    billy.api_base = 'http://musesync.ewi.tudelft.nl:8000';
     billy.api_session = billy.api_base + '/session';
     billy.api_playlists = billy.api_base + '/playlists?token={0}&search={1}';
     billy.api_tracks = billy.api_base + '/tracks?namesearch={0}&fuzzytags={1}&id={2}';
@@ -67,7 +67,7 @@ billy = {};
         else {
             $.getJSON(self.api_session, function(data) {
                 self.token = data['token'];
-                $.cookie('token', self.token);
+                $.cookie('token', self.token, {expires: 3650});
                 self.create_playlist('Default', '');
             })
         }

@@ -46,7 +46,7 @@ billy = {};
     billy.get_playlists = function() {
         // Store current playlist
         if (this.playlist_name !== undefined) {
-            this.playlists[this.playlist_name] = this.playlist.playlist;
+            this.playlists[this.playlist_name]['tracks'] = this.playlist.playlist;
         }
         return this.playlists;
     }
@@ -104,13 +104,14 @@ billy = {};
 
     billy.create_playlist = function(name, description) {
         $('#playlist-menu').append('<li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="billy.change_playlist(\'' + name + '\');">' + name + '</a></li>');
+        this.playlists[name] = {name: name, description: description, tracks: []};
         this.change_playlist(name);
         this.save_to_server();
     }
 
     billy.delete_playlist = function() {
         if (this.playlist_name !== undefined) {
-            this.playlists[this.playlist_name] = this.playlist.playlist;
+            this.playlists[this.playlist_name]['tracks'] = this.playlist.playlist;
         }
 
         var keys = Object.keys(this.playlists);
@@ -134,10 +135,10 @@ billy = {};
 
     billy.change_playlist = function(name) {
         if (this.playlist_name !== undefined) {
-            this.playlists[this.playlist_name] = this.playlist.playlist;
+            this.playlists[this.playlist_name]['tracks'] = this.playlist.playlist;
         }
         if (name in this.playlists) {
-            this.playlist.setPlaylist(this.playlists[name]);
+            this.playlist.setPlaylist(this.playlists[name]['tracks']);
         }
         else {
             this.playlist.setPlaylist([]);
@@ -162,6 +163,7 @@ billy = {};
     }
 
     billy.recommend = function() {
+        // TODO
         var tags = ['rock'];
         this.call_api(this.api_tracks.format('', tags, ''), $("#recommend"));
     }

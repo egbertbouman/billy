@@ -81,6 +81,7 @@ class API(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def tracks(self, namesearch=None, fuzzytags=None, id=None):
+        # TODO: use dataset
         if bool(namesearch) + bool(fuzzytags) + bool(id) != 1:
             return self.error('please use either the namesearch, the fuzzytags, or the id param', 400)
 
@@ -104,25 +105,8 @@ class API(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def recommend(self, description, tracks):
-        genres = set()
-        for track_id in json.loads(tracks):
-            track_id = unicode(track_id)
-            if track_id in self.dataset_dict:
-                track = self.dataset_dict[track_id]
-                for genre in track['musicinfo']['tags'].get('genres', []):
-                    genres.add(genre)
-
-        params = {'client_id': self.client_id,
-                  'limit': 200,
-                  'include': 'musicinfo',
-                  'tags': list(genres)}
-
-        response = requests.get(self.jamendo_url, params=params).json()
-        if 'headers' in response and response['headers'].get('status', 'error') == 'success':
-            response['results'] = [item for item in response['results'] if item['id'] in self.dataset_dict and item['id'] not in tracks]
-            response['headers']['results_count'] = len(response['results'])
-        return response
+    def recommend(self, token=None):
+        return self.error('not implemented yet', 404)
 
 
 def main(argv):

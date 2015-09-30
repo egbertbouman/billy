@@ -54,6 +54,8 @@ def index(music_json_data,index_dir,alternative_spelling_dict={},analyzer=Standa
 
 
 def search(index_dir, query, analyzer=StandardAnalyzer(Version.LUCENE_CURRENT), max_results=200):
+    lucene.getVMEnv().attachCurrentThread()
+
     reader = DirectoryReader.open(SimpleFSDirectory(File(index_dir)))
     searcher = IndexSearcher(reader)
     

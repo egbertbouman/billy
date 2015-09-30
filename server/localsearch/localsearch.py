@@ -1,5 +1,6 @@
 import os
 import json
+import random
 
 # We make use of the Pylucene libraries (see http://lucene.apache.org/pylucene/)
 import lucene
@@ -40,7 +41,7 @@ def index(music_json_data,index_dir,alternative_spelling_dict={},analyzer=Standa
     for song in music_json_data:
         doc = Document()
       
-        index_terms = getIndexTerms(song, alternative_spelling_dict)
+        index_terms = ' '.join(getIndexTerms(song, alternative_spelling_dict))
         print 'Indexing song ''%s'' with terms: %s\n' % (song['name'], index_terms)
               
         doc.add(Field("index_terms", index_terms, index_terms_field))
@@ -71,11 +72,34 @@ def search(index_dir, query, analyzer=StandardAnalyzer(Version.LUCENE_CURRENT), 
         
     reader.close()
     
-    # the result to be returned is a dump of JSON-formatted song data
-    return '[%s]' % ', '.join(result)
+    # the result to be returned is a list of JSON dictionaries (one per song)
+    return json.loads('[%s]' % ', '.join(result))
+
+
+def recommendForSongSet(song_set, full_dataset, index_dir):
+    if len(song_set) > 0:
+        song_set_ids = [song['id'] for song in song_set]
+        frequent_terms_in_set = getFrequentTerms(song_set)
+        query_from_frequent_terms = ' '.join(frequent_terms_in_set)
+        print 'querying dataset for "%s"' % query_from_frequent_terms
+        search_results = search(index_dir, query_from_frequent_terms)
+        
+        filtered_search_results = []
+        for search_result in search_results:
+            if not search_result['id'] in song_set_ids:
+                filtered_search_results.append(search_result)
+                    
+        if len(filtered_search_results) > 0:
+            return filtered_search_results
+
+    # If we reach this pointe, we will not have found any eligible songs.
+    # Return 20 random results instead.
+    random_dataset_indices = random.sample(range(0, len(full_dataset)), 20)
+    return [full_dataset[i] for i in random_dataset_indices]
+
 
 # Suggest frequently occurring metadata info in a given set of JSON results
-def whatShouldIHaveSearchedFor(music_json_data, num_suggestions=5, exclude_terms =[''], alternative_spelling_dict = {}):
+def getFrequentTerms(music_json_data, num_suggestions=20, exclude_terms =[''], alternative_spelling_dict = {}):
     all_tags = []
     
     for song in music_json_data:
@@ -88,26 +112,34 @@ def whatShouldIHaveSearchedFor(music_json_data, num_suggestions=5, exclude_terms
         
     sorted_frequencies = sorted(frequencies, key = lambda x : x[1], reverse = True)
     
-    return sorted_frequencies[0:num_suggestions]
+    top_n = sorted_frequencies[0:num_suggestions]
+
+    return [tuple_item[0] for tuple_item in top_n]
 
 # Outputting song and artist name, plus several musicinfo fields now
 def getIndexTerms(song, alternative_spelling_dict):
     index_terms = ['']
     
-    index_terms.append(song["artist_name"].decode("utf-8"))
-    index_terms.append(song["name"].decode("utf-8"))
+    index_terms.append(getUnicodeString(song["artist_name"]))
+    index_terms.append(getUnicodeString(song["name"]))
     
-    index_terms.append(song["musicinfo"]["acousticelectric"])
-    index_terms.append(song["musicinfo"]["vocalinstrumental"])
+    index_terms.append(getUnicodeString(song["musicinfo"]["acousticelectric"]))
+    index_terms.append(getUnicodeString(song["musicinfo"]["vocalinstrumental"]))
     
     index_terms.extend(expandSpeedTerms((song["musicinfo"]["speed"])))
     index_terms.extend(getCombinedTags(song, alternative_spelling_dict))
     
-    print index_terms
+    #print index_terms
     
-    index_terms = [term.encode("utf-8") for term in index_terms]
+    index_terms = [term.encode('utf-8') for term in index_terms]
     
-    return ' '.join(filter(None, index_terms))
+    return filter(None, index_terms)
+
+def getUnicodeString(input):
+    if isinstance(input, unicode):
+        return input
+    else:
+        return input.decode('utf-8')
 
 # Add 'fast' and 'slow'as alternatives for 'high speed' and 'low speed'
 def expandSpeedTerms(speed_qualifier):
@@ -125,7 +157,7 @@ def getCombinedTags(song_json_data, alternative_spelling_dict = {}):
     
     for category in song_json_data['musicinfo']['tags'].keys():
         for tag in song_json_data['musicinfo']['tags'][category]:
-            combined_tags.extend(expandAlternativeSpellings(tag, alternative_spelling_dict))
+            combined_tags.extend(expandAlternativeSpellings(getUnicodeString(tag), alternative_spelling_dict))
 
     return combined_tags
     

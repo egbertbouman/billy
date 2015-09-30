@@ -25,6 +25,7 @@ class API(object):
 
         self.dataset = dataset
         self.dataset_dict = {item['id']: item for item in dataset}
+        self.index_dir = os.path.join(CURRENT_DIR, 'localsearch', 'index')
 
     def get_session(self, token):
         sessions = list(self.db.sessions.find({'_id': token}).limit(1))
@@ -93,15 +94,18 @@ class API(object):
                 return self.dataset[id]
             return self.error('track does not exist', 404)
 
-        index_dir = os.path.join(CURRENT_DIR, 'localsearch', 'index')
-        results = json.loads(search(index_dir, query))
+        results = search(self.index_dir, query)
         results.sort(key=lambda x: x['stats']['playlisted'], reverse=True)
         return {'results': results}
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def recommend(self, token=None, name=None):
-        return self.error('not implemented yet', 404)
+        # current_playlist_json = [RETRIEVE LIST OF JSON DICTIONARIES FOR CURRENTLY ACTIVE PLAYLIST]
+        # results = recommendForSongSet(current_playlist_json, self.dataset, self.index_dir)
+        # return ...
+        return
+
 
 
 class StaticContent(object):

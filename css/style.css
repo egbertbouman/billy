@@ -86,7 +86,7 @@ body {
     width: 60px;
     height: 60px;
 }
-.shorten {
+.column-description, .shorten {
     overflow: hidden;
 	text-overflow: ellipsis;
 	-o-text-overflow: ellipsis;
@@ -143,4 +143,8 @@ span.rollover:hover {
 }
 .glyphicon{
   font-size: 1.2em;
+}
+.column-description {
+  color: #aaa;
+  min-height: 20px;
 }

@@ -60,15 +60,15 @@ billy = {};
                 self.add_playlists(data);
             })
             .fail(function() {
-                // No remote playlists available. Create a default (empty) playlist.
-                self.create_playlist('Default', '');
+                // No remote playlists available. Create a new playlist.
+                self.create_playlist();
             });
         }
         else {
             $.getJSON(self.api_session, function(data) {
                 self.token = data['token'];
                 $.cookie('token', self.token, {expires: 3650});
-                self.create_playlist('Default', '');
+                self.create_playlist();
             })
         }
     }
@@ -102,6 +102,10 @@ billy = {};
     }
 
     billy.create_playlist = function(name, description) {
+        if (name === undefined) {
+            $('#new-playlist-modal').modal('show');
+            return;
+        }
         $('#playlist-menu').append('<li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="billy.change_playlist(\'' + name + '\');">' + name + '</a></li>');
         this.playlists[name] = {name: name, description: description, tracks: []};
         this.change_playlist(name);
@@ -144,6 +148,7 @@ billy = {};
         }
         this.playlist_name = name;
         $('#playlist-menu-button').html('Playlist: ' + name + ' <span class="caret"></span>');
+        $('#playlist > .column-description').html(this.playlists[name]['description']);
         this.recommend();
     }
 

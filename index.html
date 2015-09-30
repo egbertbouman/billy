@@ -144,7 +144,7 @@
               <div class="modal-dialog">
                 <div class="modal-content">
                   <div class="modal-header">
-                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    <button type="button" class="close" id="new-playlist-close1">&times;</button>
                     <h4 class="modal-title">Create new playlist</h4>
                   </div>
 
@@ -163,8 +163,8 @@
                   </div>
 
                   <div class="modal-footer">
-                    <a href="#" class="btn btn-default" data-dismiss="modal">Close</a>
-                    <button id="new-playlist-button" type="submit" class="btn btn-primary" form="new-playlist-form">Save</button>
+                    <button type="button" class="btn btn-default" id="new-playlist-close2">Close</button>
+                    <button id="new-playlist-save" type="submit" class="btn btn-primary" form="new-playlist-form">Save</button>
                   </div>
                 </div>
               </div>
@@ -234,6 +234,17 @@
       $(billy.playlist.cssSelector.jPlayer).bind($.jPlayer.event.ready, function() {
         billy.load_from_server();
       });
+
+      $('#new-playlist-close1').add($('#new-playlist-close2')).click(function (evt) {
+        if (!evt.isDefaultPrevented()) {
+          if (Object.keys(billy.playlists).length > 0) {
+              $('#new-playlist-modal').modal('hide');
+              $('#new-playlist-modal').find('form')[0].reset();
+          }
+          return false;
+        }
+      });
+
 
       $('#new-playlist-form').submit(function (evt) {
         if (!evt.isDefaultPrevented()) {

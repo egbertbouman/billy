@@ -160,7 +160,9 @@
 				itemClass: "jp-playlist-item",
 				freeGroupClass: "jp-free-media",
 				freeItemClass: "jp-playlist-item-free",
-				removeItemClass: "jp-playlist-item-remove"
+				removeItemClass: "jp-playlist-item-remove",
+				moveupItemClass: "jp-playlist-item-moveup",
+				movedownItemClass: "jp-playlist-item-movedown"
 			}
 		},
 		option: function(option, value) { // For changing playlist options only
@@ -252,9 +254,11 @@
 
 			// Create play/remove controls
 		    listItem += '<div class="pull-right m-l btn-group">';
+		    listItem += '<a href="#" class="m-r-sm ' + this.options.playlistOptions.moveupItemClass +'"><span class="glyphicon glyphicon-circle-arrow-up"></span></a>';
+		    listItem += '<a href="#" class="m-r-sm ' + this.options.playlistOptions.movedownItemClass +'"><span class="glyphicon glyphicon-circle-arrow-down"></span></a>';
             listItem += '<a href="#" onclick="return false;" data-toggle="popover" data-placement="bottom" tabindex="0" data-trigger="focus" title="Tags" data-content="' + billy.create_tags_popover(media['musicinfo']) + '" class="m-r-sm"><span class="glyphicon glyphicon-info-sign"></span></a>';
-            listItem += '<a href="#" class="m-r-sm ' + this.options.playlistOptions.itemClass +'"><span class="glyphicon glyphicon-play"></span></a>';
-            listItem += '<a href="#" class="m-r-sm ' + this.options.playlistOptions.removeItemClass +'"><span class="glyphicon glyphicon-remove"></span></a>';
+            listItem += '<a href="#" class="m-r-sm ' + this.options.playlistOptions.itemClass +'"><span class="glyphicon glyphicon-play-circle"></span></a>';
+            listItem += '<a href="#" class="m-r-sm ' + this.options.playlistOptions.removeItemClass +'"><span class="glyphicon glyphicon-remove-circle"></span></a>';
             listItem += '</div>';
 
 			// Create links to free media
@@ -309,6 +313,19 @@
 				self.remove(index);
 				self.blur(this);
 			});
+			// Handlers for reordering playlist itens
+			$(this.cssSelector.playlist).off("click", "a." + this.options.playlistOptions.moveupItemClass).on("click", "a." + this.options.playlistOptions.moveupItemClass, function(e) {
+				e.preventDefault();
+				var index = $(this).parent().parent().index();
+				self.position(index, 1);
+				self.blur(this);
+			});
+			$(this.cssSelector.playlist).off("click", "a." + this.options.playlistOptions.movedownItemClass).on("click", "a." + this.options.playlistOptions.movedownItemClass, function(e) {
+				e.preventDefault();
+				var index = $(this).parent().parent().index();
+				self.position(index, -1);
+				self.blur(this);
+			});
 		},
 		_updateControls: function() {
 			if(this.options.playlistOptions.enableRemoveControls) {
@@ -343,6 +360,23 @@
 		setPlaylist: function(playlist) {
 			this._initPlaylist(playlist);
 			this._init();
+		},
+		position: function(index, step) {
+			if (this.shuffled)
+				return;
+
+			var item = this.playlist[index];
+			this.playlist.splice(index, 1);
+			this.playlist.splice(index - step, 0, item);
+
+			var current_item = $(".jp-playlist-current");
+
+			if (step > 0)
+				$(this.cssSelector.playlist + " li:nth-child(" + (index + 1) + ")").after($(this.cssSelector.playlist + " li:nth-child(" + (index + 1 - step) + ")"));
+			else
+				$(this.cssSelector.playlist + " li:nth-child(" + (index + 1) + ")").before($(this.cssSelector.playlist + " li:nth-child(" + (index + 1 - step) + ")"));
+
+			this.current = current_item.parents('.list-group-item').index();
 		},
 		add: function(media, playNow) {
 			$(this.cssSelector.playlist + " ul").append(this._createListItem(media)).find("li:last-child").hide().slideDown(this.options.playlistOptions.addTime);

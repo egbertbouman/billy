@@ -18,7 +18,7 @@ billy = {};
                          supplied: 'mp3',
                          wmode: 'window'
                      });
-    billy.api_base = 'http://musesync.ewi.tudelft.nl:8000';
+    billy.api_base = 'http://127.0.0.1:7777';
     billy.api_session = billy.api_base + '/session';
     billy.api_playlists = billy.api_base + '/playlists?token={0}&search={1}';
     billy.api_tracks = billy.api_base + '/tracks?namesearch={0}&fuzzytags={1}&id={2}';
@@ -206,8 +206,8 @@ billy = {};
 
                 item_html += '<div class="pull-right m-l btn-group">';
                 item_html += '<a href="#" onclick="return false;" data-toggle="popover" data-placement="bottom" tabindex="0" data-trigger="focus" title="Tags" data-content="' + tags_html + '" class="m-r-sm"><span class="glyphicon glyphicon-info-sign"></span></a>';
-                item_html += '<a href="#" onclick="billy.play_track(' + val['id'] + '); return false;" class="m-r-sm"><span class="glyphicon glyphicon-play"></span></a>';
-                item_html += '<a href="#" onclick="billy.add_track(' + val['id'] + '); return false;" class="m-r-sm"><span class="glyphicon glyphicon-plus"></span></a>';
+                item_html += '<a href="#" onclick="billy.play_track(' + val['id'] + '); return false;" class="m-r-sm"><span class="glyphicon glyphicon-play-circle"></span></a>';
+                item_html += '<a href="#" onclick="billy.add_track(' + val['id'] + '); return false;" class="m-r-sm"><span class="glyphicon glyphicon-remove-circle rotate-45"></span></a>';
 
                 item_html += '</div>';
 

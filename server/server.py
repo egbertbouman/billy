@@ -105,8 +105,15 @@ class API(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def recommend(self, token=None):
+    def recommend(self, token=None, name=None):
         return self.error('not implemented yet', 404)
+
+
+class StaticContent(object):
+
+    @cherrypy.expose
+    def index(self, **args):
+        raise cherrypy.HTTPRedirect("index.html")
 
 
 def main(argv):
@@ -115,6 +122,7 @@ def main(argv):
     try:
         parser.add_argument('-p', '--port', help='Listen port', required=True)
         parser.add_argument('-d', '--data', help='JSON formatted dataset', required=True)
+        parser.add_argument('-s', '--static', help='Directory with static content (served from http://server/billy)', required=False)
         parser.add_help = True
         args = parser.parse_args(sys.argv[1:])
 
@@ -129,14 +137,30 @@ def main(argv):
     dataset = json.loads(urllib.urlopen(args.data).read())
     api = API(dataset)
 
+
+    if args.static:
+        html_dir = os.path.abspath(args.static)
+        if not os.path.exists(html_dir):
+            raise IOError('directory does not exist')
+        config = {'/': {'tools.staticdir.root': os.path.abspath(args.static),
+                        'tools.staticdir.on': True,
+                        'tools.staticdir.dir': "",
+                        'response.headers.connection': "close"}}
+        app = cherrypy.tree.mount(StaticContent(), '/billy', config)
+
     config = {'/': {'server.thread_pool': 1,
                     'tools.CORS.on': True,
                     'tools.sessions.on': True,
                     'tools.response_headers.on': True,
                     'tools.response_headers.headers': [('Content-Type', 'text/plain')]}}
-    cherrypy.config.update({'server.socket_host': '0.0.0.0',
-                            'server.socket_port': int(args.port)})
-    cherrypy.quickstart(api, '/', config)
+    app = cherrypy.tree.mount(api, '/api', config)
+
+    server = cherrypy._cpserver.Server()
+    server.socket_port = int(args.port)
+    server._socket_host = '0.0.0.0'
+    server.thread_pool = 5
+    server.subscribe()
+    server.start()
 
 
 if __name__ == "__main__":

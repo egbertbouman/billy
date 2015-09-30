@@ -18,7 +18,7 @@ billy = {};
                          supplied: 'mp3',
                          wmode: 'window'
                      });
-    billy.api_base = 'http://127.0.0.1:7777';
+    billy.api_base = 'http://musesync.ewi.tudelft.nl/api';
     billy.api_session = billy.api_base + '/session';
     billy.api_playlists = billy.api_base + '/playlists?token={0}&search={1}';
     billy.api_tracks = billy.api_base + '/tracks?namesearch={0}&fuzzytags={1}&id={2}';

@@ -8,6 +8,7 @@ import requests
 import cherrypy
 import binascii
 
+from localsearch.localsearch import *
 from pymongo import MongoClient
 
 
@@ -80,28 +81,33 @@ class API(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def tracks(self, namesearch=None, fuzzytags=None, id=None):
+    def tracks(self, query=None, id=None):
         # TODO: use dataset
-        if bool(namesearch) + bool(fuzzytags) + bool(id) != 1:
-            return self.error('please use either the namesearch, the fuzzytags, or the id param', 400)
+        if bool(query) != bool(id):
+            return self.error('please use either the query or the id param', 400)
 
-        params = {'client_id': self.client_id,
-                  'limit': 200,
-                  'include': 'musicinfo',
-                  'groupby': 'artist_id'}
+        if id:
+            if id in self.dataset:
+                return self.dataset[id]
+            return self.error('track does not exist', 404)
 
-        if namesearch:
-            params['namesearch'] = namesearch
-        elif fuzzytags:
-            params['fuzzytags'] = fuzzytags
-        else:
-            params['id'] = id
+        index_dir = os.path.join(os.path.dirname(__file__), 'localsearch', 'index')
+        response = search(index_dir, query)
+        pass
 
-        response = requests.get(self.jamendo_url, params=params).json()
-        if 'headers' in response and response['headers'].get('status', 'error') == 'success':
-            response['results'] = [item for item in response['results'] if item['id'] in self.dataset_dict]
-            response['headers']['results_count'] = len(response['results'])
-        return response
+
+#        if namesearch:
+#            params['namesearch'] = namesearch
+#        elif fuzzytags:
+#            params['fuzzytags'] = fuzzytags
+#        else:
+#            params['id'] = id
+#
+#        response = requests.get(self.jamendo_url, params=params).json()
+#        if 'headers' in response and response['headers'].get('status', 'error') == 'success':
+#            response['results'] = [item for item in response['results'] if item['id'] in self.dataset_dict]
+#            response['headers']['results_count'] = len(response['results'])
+#        return response
 
     @cherrypy.expose
     @cherrypy.tools.json_out()

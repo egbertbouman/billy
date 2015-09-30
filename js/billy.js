@@ -157,6 +157,7 @@ billy = {};
     }
 
     billy.search = function() {
+        this.change_results('search');
         var query = $("#search-query").val();
         this.call_api(this.api_tracks.format(query, '', ''), $("#search"));
     }

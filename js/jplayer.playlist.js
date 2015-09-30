@@ -188,13 +188,14 @@
 		},
 		_init: function() {
 			var self = this;
-			this._refresh(function() {
-				if(self.options.playlistOptions.autoPlay) {
-					self.play(self.current);
-				} else {
-					self.select(self.current);
-				}
-			});
+                        this._refresh(true);
+			//this._refresh(function() {
+			//	if(self.options.playlistOptions.autoPlay) {
+			//		self.play(self.current);
+			//	} else {
+			//		self.select(self.current);
+			//	}
+			//});
 		},
 		_initPlaylist: function(playlist) {
 			this.current = 0;

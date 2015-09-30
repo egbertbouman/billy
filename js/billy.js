@@ -24,14 +24,15 @@ billy = {};
     billy.api_tracks = billy.api_base + '/tracks?query={0}&id={1}';
 
     billy.add_playlists = function(playlists) {
-        // Add playlists + add links to the dropdown menu 
+        // Add playlists + add links to the playlist tabs
         var skipped = [];
         for (var name in playlists) {
             if (name in this.playlists) {
                 skipped.push(name);
                 continue;
             }
-            $('#playlist-menu').append('<li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="billy.change_playlist(\'' + name + '\');">' + name + '</a></li>');
+
+            $('#playlist-tabs').append('<li role="presentation"><a href="#" onclick="billy.change_playlist(\'' + name + '\');">' + name + '</a></li>');
             this.playlists[name] = playlists[name];
         }
         // If no playlist was selected, select one now.
@@ -106,7 +107,9 @@ billy = {};
             $('#new-playlist-modal').modal('show');
             return;
         }
-        $('#playlist-menu').append('<li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="billy.change_playlist(\'' + name + '\');">' + name + '</a></li>');
+        var tab = $('<li role="presentation"><a href="#" onclick="billy.change_playlist(\'' + name + '\');">' + name + '</a></li>').appendTo($('#playlist-tabs'));
+        if (Object.keys(this.playlists).length == 0)
+            tab.tab('show');
         this.playlists[name] = {name: name, description: description, tracks: []};
         this.change_playlist(name);
         this.save_to_server();
@@ -131,7 +134,9 @@ billy = {};
         this.change_playlist(to_show);
 
         delete this.playlists[to_delete];
-        $('#playlist-menu > li > a[onclick="billy.change_playlist(\'' + to_delete + '\');"]').parent().remove();
+        $('#playlist-tabs > li > a').filter(function() {
+            return $(this).text() === to_delete;
+        }).parent().remove();
 
         this.save_to_server();
     }
@@ -147,18 +152,25 @@ billy = {};
             this.playlist.setPlaylist([]);
         }
         this.playlist_name = name;
+        $('#playlist-tabs > li > a').filter(function() {
+            return $(this).text() === name;
+        }).parent().tab('show');
         $('#playlist-menu-button').html('Playlist: ' + name + ' <span class="caret"></span>');
         $('#playlist > .column-description').html(this.playlists[name]['description']);
         this.recommend();
     }
 
     billy.change_results = function(name) {
+        // Highlight tab
+        $('#' + name + '-tab').tab('show');
+        // Show tab pane
         var tab = $('#' + name);
         $('#results-menu-button').html(tab.attr('name') + ' <span class="caret"></span>');
         $('.tab-pane').each(function (item) {
             $(this).hide();
         });
         $(tab).show();
+        // Set description
         if (name === 'search') {
             var msg = ($('#search > .list-group-item').length > 0) ? 'The results for the query you\'ve entered are listed below' : '';
             $('#results > .column-description').html(msg);

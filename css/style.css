@@ -148,3 +148,6 @@ span.rollover:hover {
   color: #aaa;
   min-height: 20px;
 }
+.nav-tabs {
+  margin-bottom: 10px;
+}

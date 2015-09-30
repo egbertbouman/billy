@@ -106,17 +106,10 @@
 
       <div class="col-md-6">
 
-        <div class="dropdown">
-          <div class="btn-group">
-            <button class="btn btn-default dropdown-toggle" type="button" id="results-menu-button" data-toggle="dropdown">Search results
-            <span class="caret"></span></button>
-            <ul class="dropdown-menu" role="menu" aria-labelledby="results-menu-button" id="results-menu">
-              <li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="billy.change_results('search'); return false;">Search results</a></li>
-              <li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="billy.change_results('recommend'); return false">Recommendations</a></li>
-            </ul>
-
-          </div>
-        </div>
+        <ul class="nav nav-tabs">
+          <li id="search-tab" role="presentation" class="active"><a href="#" onclick="billy.change_results('search'); return false;">Search results</a></li>
+          <li id="recommend-tab" role="presentation"><a href="#" onclick="billy.change_results('recommend'); return false">Recommendations</a></li>
+        </ul>
         <div class="tab-content" id="results">
           <div class="column-description"></div>
           <div class="tab-pane fade in active list-group" id="search" name="Search results"></div>
@@ -126,46 +119,42 @@
 
       <div class="col-md-6">
 
-        <div class="dropdown">
-          <div class="btn-group">
-            <button class="btn btn-default dropdown-toggle" type="button" id="playlist-menu-button" data-toggle="dropdown">Playlist
-            <span class="caret"></span></button>
-            <ul class="dropdown-menu" role="menu" aria-labelledby="playlist-menu-button" id="playlist-menu">
-            </ul>
- 
-            <button type="button" class="btn btn-default" data-toggle="modal" data-target="#new-playlist-modal">Create</button>
-            <button type="button" class="btn btn-default" href="#" onclick="billy.delete_playlist();">Delete</button>
-            <button type="button" class="btn btn-default" href="#" onclick="document.getElementById('file').click();">Import</button>
-            <button type="button" class="btn btn-default" href="#" onclick="billy.export_json();">Export all</button>
+        <ul class="nav nav-tabs" id="playlist-tabs"></ul>
 
-            <input type='file' id='file' name='file' style='display: none;'/>
+        <div class="btn-group">
 
-            <div class="modal fade" id="new-playlist-modal" tabindex="-1" role="dialog">
-              <div class="modal-dialog">
-                <div class="modal-content">
-                  <div class="modal-header">
-                    <button type="button" class="close" id="new-playlist-close1">&times;</button>
-                    <h4 class="modal-title">Create new playlist</h4>
-                  </div>
+          <button type="button" class="btn btn-default" data-toggle="modal" data-target="#new-playlist-modal">Create</button>
+          <button type="button" class="btn btn-default" href="#" onclick="billy.delete_playlist();">Delete</button>
+          <button type="button" class="btn btn-default" href="#" onclick="document.getElementById('file').click();">Import</button>
+          <button type="button" class="btn btn-default" href="#" onclick="billy.export_json();">Export all</button>
 
-                  <div class="modal-body">
-                    <form action="" role="form" data-toggle="validator" id="new-playlist-form">
-                      <div class="form-group">
-                        <label for="playlist-name" class="control-label">Name</label>
-                        <input type="text" id="playlist-name" class="form-control" required>
-                        <div class="help-block with-errors"></div>
-                      </div>
-                      <div class="form-group">
-                        <label for="playlist-description" class="control-label">Description</label>
-                        <textarea id="playlist-description" class="form-control" rows="3" required></textarea>
-                      </div>
-                    </form>
-                  </div>
+          <input type='file' id='file' name='file' style='display: none;'/>
 
-                  <div class="modal-footer">
-                    <button type="button" class="btn btn-default" id="new-playlist-close2">Close</button>
-                    <button id="new-playlist-save" type="submit" class="btn btn-primary" form="new-playlist-form">Save</button>
-                  </div>
+          <div class="modal fade" id="new-playlist-modal" tabindex="-1" role="dialog">
+            <div class="modal-dialog">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <button type="button" class="close" id="new-playlist-close1">&times;</button>
+                  <h4 class="modal-title">Create new playlist</h4>
+                </div>
+
+                <div class="modal-body">
+                  <form action="" role="form" data-toggle="validator" id="new-playlist-form">
+                    <div class="form-group">
+                      <label for="playlist-name" class="control-label">Name</label>
+                      <input type="text" id="playlist-name" class="form-control" required>
+                      <div class="help-block with-errors"></div>
+                    </div>
+                    <div class="form-group">
+                      <label for="playlist-description" class="control-label">Description</label>
+                      <textarea id="playlist-description" class="form-control" rows="3" required></textarea>
+                    </div>
+                  </form>
+                </div>
+
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-default" id="new-playlist-close2">Close</button>
+                  <button id="new-playlist-save" type="submit" class="btn btn-primary" form="new-playlist-form">Save</button>
                 </div>
               </div>
             </div>

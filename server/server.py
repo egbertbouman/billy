@@ -94,7 +94,9 @@ class API(object):
             return self.error('track does not exist', 404)
 
         index_dir = os.path.join(CURRENT_DIR, 'localsearch', 'index')
-        return {'results': json.loads(search(index_dir, query))}
+        results = json.loads(search(index_dir, query))
+        results.sort(key=lambda x: x['stats']['playlisted'], reverse=True)
+        return {'results': results}
 
     @cherrypy.expose
     @cherrypy.tools.json_out()

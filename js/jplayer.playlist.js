@@ -426,7 +426,7 @@
 								self.original.splice(index, 1);
 								self.playlist.splice(index, 1);
 							}
-							billy.save_cookie();
+							billy.save_to_server();
 
 							if(self.original.length) {
 								if(index === self.current) {

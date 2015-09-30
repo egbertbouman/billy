@@ -21,7 +21,7 @@ billy = {};
     billy.api_base = 'http://musesync.ewi.tudelft.nl/api';
     billy.api_session = billy.api_base + '/session';
     billy.api_playlists = billy.api_base + '/playlists?token={0}&search={1}';
-    billy.api_tracks = billy.api_base + '/tracks?namesearch={0}&fuzzytags={1}&id={2}';
+    billy.api_tracks = billy.api_base + '/tracks?query={0}&id={1}';
 
     billy.add_playlists = function(playlists) {
         // Add playlists + add links to the dropdown menu 
@@ -164,13 +164,13 @@ billy = {};
     billy.search = function() {
         this.change_results('search');
         var query = $("#search-query").val();
-        this.call_api(this.api_tracks.format(query, '', ''), $("#search"));
+        this.call_api(this.api_tracks.format(query, ''), $("#search"));
     }
 
     billy.recommend = function() {
         // TODO
         var tags = ['rock'];
-        this.call_api(this.api_tracks.format('', tags, ''), $("#recommend"));
+        this.call_api(this.api_tracks.format(tags, ''), $("#recommend"));
     }
 
     billy.call_api = function (url, target) {
@@ -235,7 +235,7 @@ billy = {};
         }
         else {
             var self = this;
-            $.getJSON(this.api_tracks.format('', '', jamendo_id), function(data) {
+            $.getJSON(this.api_tracks.format('', jamendo_id), function(data) {
                 if (!self.check_api_response(data)) {
                     return;
                 }
@@ -261,7 +261,7 @@ billy = {};
         }
         else {
             var self = this;
-            $.getJSON(this.api_tracks.format('', '', jamendo_id), function(data) {
+            $.getJSON(this.api_tracks.format('', jamendo_id), function(data) {
                 if (!self.check_api_response(data)) {
                     return;
                 }
@@ -271,7 +271,7 @@ billy = {};
     }
 
     billy.check_api_response = function(data) {
-        var success = ('headers' in data && 'status' in data['headers'] && data['headers']['status'] === 'success');
+        var success = !('error' in data);
         if (!success) {
             bootbox.alert('Failed to contact Jamendo server!')
         }

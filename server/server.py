@@ -11,6 +11,8 @@ import binascii
 from localsearch.localsearch import *
 from pymongo import MongoClient
 
+CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
+
 
 class API(object):
 
@@ -83,7 +85,7 @@ class API(object):
     @cherrypy.tools.json_out()
     def tracks(self, query=None, id=None):
         # TODO: use dataset
-        if bool(query) != bool(id):
+        if bool(query) == bool(id):
             return self.error('please use either the query or the id param', 400)
 
         if id:
@@ -91,23 +93,8 @@ class API(object):
                 return self.dataset[id]
             return self.error('track does not exist', 404)
 
-        index_dir = os.path.join(os.path.dirname(__file__), 'localsearch', 'index')
-        response = search(index_dir, query)
-        pass
-
-
-#        if namesearch:
-#            params['namesearch'] = namesearch
-#        elif fuzzytags:
-#            params['fuzzytags'] = fuzzytags
-#        else:
-#            params['id'] = id
-#
-#        response = requests.get(self.jamendo_url, params=params).json()
-#        if 'headers' in response and response['headers'].get('status', 'error') == 'success':
-#            response['results'] = [item for item in response['results'] if item['id'] in self.dataset_dict]
-#            response['headers']['results_count'] = len(response['results'])
-#        return response
+        index_dir = os.path.join(CURRENT_DIR, 'localsearch', 'index')
+        return {'results': json.loads(search(index_dir, query))}
 
     @cherrypy.expose
     @cherrypy.tools.json_out()

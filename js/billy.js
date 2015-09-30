@@ -159,12 +159,17 @@ billy = {};
             $(this).hide();
         });
         $(tab).show();
+        if (name === 'search') {
+            var msg = ($('#search > .list-group-item').length > 0) ? 'The results for the query you\'ve entered are listed below' : '';
+            $('#results > .column-description').html(msg);
+        }
+        else if (name === 'recommend')
+            $('#results > .column-description').html('Based on your playlists, you may also be interested in..');
     }
 
     billy.search = function() {
-        this.change_results('search');
         var query = $("#search-query").val();
-        this.call_api(this.api_tracks.format(query, ''), $("#search"));
+        this.call_api(this.api_tracks.format(query, ''), $("#search"), function() {billy.change_results('search');});
     }
 
     billy.recommend = function() {
@@ -173,7 +178,7 @@ billy = {};
         this.call_api(this.api_tracks.format(tags, ''), $("#recommend"));
     }
 
-    billy.call_api = function (url, target) {
+    billy.call_api = function (url, target, callback) {
         var self = this;
         $.getJSON(url, function(data) {
             if (!self.check_api_response(data)) {
@@ -224,6 +229,8 @@ billy = {};
 
                 $(item_html).appendTo(target);
             });
+            if (callback !== undefined)
+                callback();
           $("[data-toggle=popover]").popover({ html : true, container: 'body'});
         });
     }

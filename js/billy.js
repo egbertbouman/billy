@@ -82,7 +82,7 @@ billy = {};
             contentType: "application/json",
             processData: false,
             data: JSON.stringify(this.get_playlists()),
-            error: function() { bootbox.alert('Failed to contant Billy server') },
+            error: function() { bootbox.alert('Failed to contact Billy server') },
             dataType: "text"
         });
     }
@@ -122,7 +122,7 @@ billy = {};
 
         var keys = Object.keys(this.playlists);
         if (keys.length < 2) {
-            bootbox.alert("You need to have multiple playlists in order to remove one.");
+            bootbox.alert("You should have at least one playlist. Please create a new one before deleting this one.");
             return;
         }
 
@@ -172,11 +172,11 @@ billy = {};
         $(tab).show();
         // Set description
         if (name === 'search') {
-            var msg = ($('#search > .list-group-item').length > 0) ? 'The results for the query you\'ve entered are listed below' : '';
+            var msg = ($('#search > .list-group-item').length > 0) ? 'The songs below match your search terms best:' : '';
             $('#results > .column-description').html(msg);
         }
         else if (name === 'recommend')
-            $('#results > .column-description').html('Based on your playlists, you may also be interested in..');
+            $('#results > .column-description').html('Consider adding some of these songs to your playlist too:');
     }
 
     billy.search = function() {

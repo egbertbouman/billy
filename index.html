@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>Billy</title>
+    <title>Billy - the basic playlist builder</title>
     
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -31,14 +31,14 @@
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
           </button>
-          <a class="navbar-brand" href="#">Billy</a>
+          <a class="navbar-brand" href="#">Welcome to Billy.</a>
         </div>
         
         <div id="navbar" class="collapse navbar-collapse">
           <form class="navbar-form">
             <div class="form-group" style="display:inline;">
               <div class="input-group" style="display:table;">
-                <input id="search-query" class="form-control" placeholder="Search for artists, bands, and tracks">
+                <input id="search-query" class="form-control" placeholder="For some search results to appear, please tell us what kind of songs you would like to find!">
                 <span class="input-group-btn" style="width:1%;">
                   <button id="search-button" class="btn btn-default" type="button" onclick="billy.search();">Go!</button>
                 </span>
@@ -123,10 +123,10 @@
 
         <div class="btn-group">
 
-          <button type="button" class="btn btn-default" data-toggle="modal" data-target="#new-playlist-modal">Create</button>
-          <button type="button" class="btn btn-default" href="#" onclick="billy.delete_playlist();">Delete</button>
-          <button type="button" class="btn btn-default" href="#" onclick="document.getElementById('file').click();">Import</button>
-          <button type="button" class="btn btn-default" href="#" onclick="billy.export_json();">Export all</button>
+          <button type="button" class="btn btn-default" data-toggle="modal" data-target="#new-playlist-modal">Create new</button>
+          <button type="button" class="btn btn-default" href="#" onclick="billy.delete_playlist();">Delete current</button>
+          <button type="button" class="btn btn-default" href="#" onclick="document.getElementById('file').click();">Import JSON</button>
+          <button type="button" class="btn btn-default" href="#" onclick="billy.export_json();">Export JSON</button>
 
           <input type='file' id='file' name='file' style='display: none;'/>
 
@@ -141,13 +141,13 @@
                 <div class="modal-body">
                   <form action="" role="form" data-toggle="validator" id="new-playlist-form">
                     <div class="form-group">
-                      <label for="playlist-name" class="control-label">Name</label>
-                      <input type="text" id="playlist-name" class="form-control" required>
+                        <label for="playlist-name" class="control-label">Name</label>
+                      <input type="text" id="playlist-name" class="form-control" placeholder="Please enter a name which does not match any of your existing playlist names." required>
                       <div class="help-block with-errors"></div>
                     </div>
                     <div class="form-group">
-                      <label for="playlist-description" class="control-label">Description</label>
-                      <textarea id="playlist-description" class="form-control" rows="3" required></textarea>
+                        <label for="playlist-description" class="control-label">Purpose</label>
+                      <textarea id="playlist-description" class="form-control" rows="3"  placeholder="For what purpose would you like to use this playlist? Please enter a short description here."  required></textarea>
                     </div>
                   </form>
                 </div>
@@ -241,13 +241,13 @@
           var description = $('#playlist-description').val();
           // TODO: use form validation for handling duplicate playlist names
           if (name in billy.playlists) {
-            bootbox.alert('You already have a playlist called ' + name + '.');
+            bootbox.alert('You already have a playlist called \'' + name + '\'. Please enter a unique name.');
           }
           else {
             billy.create_playlist(name, description);
+            $('#new-playlist-modal').modal('hide');
+            $('#new-playlist-modal').find('form')[0].reset();
           }
-          $('#new-playlist-modal').modal('hide');
-          $('#new-playlist-modal').find('form')[0].reset();
           return false;
         }
       });

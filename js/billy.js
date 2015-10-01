@@ -254,48 +254,21 @@ billy = {};
             this.playlist.add(this.search_results[jamendo_id]);
             this.save_to_server();
         }
-        else {
-            var self = this;
-            $.getJSON(this.api_tracks.format('', jamendo_id), function(data) {
-                if (!self.check_api_response(data)) {
-                    return;
-                }
-                $.each(data['results'], function(key, val) {
-
-                    self.playlist.add({
-                        title: val['name'],
-                        artist: val['artist_name'],
-                        mp3: val['audio'],
-                        poster: val['image'],
-                        musicinfo: val['musicinfo'],
-                        id: val['id']
-                    });
-
-                });
-                self.save_to_server();
-            });   
-        }
     }
 
     billy.play_track = function(jamendo_id) {
         if (jamendo_id in this.search_results) {
             $(this.playlist.cssSelector.jPlayer).jPlayer("setMedia", {mp3: this.search_results[jamendo_id]['mp3']}).jPlayer("play");
-        }
-        else {
-            var self = this;
-            $.getJSON(this.api_tracks.format('', jamendo_id), function(data) {
-                if (!self.check_api_response(data)) {
-                    return;
-                }
-                $(self.playlist.cssSelector.jPlayer).jPlayer("setMedia", {mp3: data['results'][0]['audio']}).jPlayer("play");
-            });   
+            // Reset playlist index
+            this.playlist.current = undefined;
+            this.playlist._refresh(true);
         }
     }
 
     billy.check_api_response = function(data) {
         var success = !('error' in data);
         if (!success) {
-            bootbox.alert('Failed to contact Jamendo server!')
+            bootbox.alert('Failed to contact Billy server!')
         }
         return success;
     }

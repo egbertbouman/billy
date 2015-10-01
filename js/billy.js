@@ -169,7 +169,6 @@ billy = {};
         $('#' + name + '-tab').tab('show');
         // Show tab pane
         var tab = $('#' + name);
-        $('#results-menu-button').html(tab.attr('name') + ' <span class="caret"></span>');
         $('.tab-pane').each(function (item) {
             $(this).hide();
         });

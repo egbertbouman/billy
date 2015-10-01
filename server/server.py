@@ -100,12 +100,18 @@ class API(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def recommend(self, token=None, name=None):
-        # current_playlist_json = [RETRIEVE LIST OF JSON DICTIONARIES FOR CURRENTLY ACTIVE PLAYLIST]
-        # results = recommendForSongSet(current_playlist_json, self.dataset, self.index_dir)
-        # return ...
-        return
+    def recommend(self, token, name):
+        session = self.get_session(token)
+        if session is None:
+            return self.error('cannot find session', 404)
 
+        playlists = session['playlists']
+        playlist = playlists.get(name, None)
+        if playlist is None:
+            return self.error('cannot find playlist', 404)
+
+        results = recommendForSongSet(playlist['tracks'], self.dataset, self.index_dir)
+        return {'results': results}
 
 
 class StaticContent(object):

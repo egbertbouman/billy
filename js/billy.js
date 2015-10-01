@@ -22,6 +22,7 @@ billy = {};
     billy.api_session = billy.api_base + '/session';
     billy.api_playlists = billy.api_base + '/playlists?token={0}&search={1}';
     billy.api_tracks = billy.api_base + '/tracks?query={0}&id={1}';
+    billy.api_recommend = billy.api_base + '/recommend?token={0}&name={1}';
 
     billy.add_playlists = function(playlists) {
         // Add playlists + add links to the playlist tabs
@@ -75,6 +76,8 @@ billy = {};
     }
 
     billy.save_to_server = function() {
+        var self = this;
+
         // Store playlists in remote database
         $.ajax({
             type: 'POST',
@@ -82,6 +85,7 @@ billy = {};
             contentType: "application/json",
             processData: false,
             data: JSON.stringify(this.get_playlists()),
+            success: function() { self.recommend() },
             error: function() { bootbox.alert('Failed to contact Billy server') },
             dataType: "text"
         });
@@ -185,9 +189,7 @@ billy = {};
     }
 
     billy.recommend = function() {
-        // TODO
-        var tags = ['rock'];
-        this.call_api(this.api_tracks.format(tags, ''), $("#recommend"));
+        this.call_api(this.api_recommend.format(this.token, this.playlist_name), $("#recommend"));
     }
 
     billy.call_api = function (url, target, callback) {
@@ -220,7 +222,8 @@ billy = {};
                     artist: val['artist_name'],
                     mp3: val['audio'],
                     poster: val['image'],
-                    musicinfo: val['musicinfo']
+                    musicinfo: val['musicinfo'],
+                    id: val['id']
                 };
 
                 var item_html = '<li class="list-group-item shorten">';
@@ -265,7 +268,8 @@ billy = {};
                         artist: val['artist_name'],
                         mp3: val['audio'],
                         poster: val['image'],
-                        musicinfo: val['musicinfo']
+                        musicinfo: val['musicinfo'],
+                        id: val['id']
                     });
 
                 });

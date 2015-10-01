@@ -120,8 +120,8 @@ def getFrequentTerms(music_json_data, num_suggestions=20, exclude_terms =[''], a
 def getIndexTerms(song, alternative_spelling_dict):
     index_terms = ['']
     
-    index_terms.append(getUnicodeString(song["artist_name"]))
-    index_terms.append(getUnicodeString(song["name"]))
+    index_terms.append(getUnicodeString(song["artist"]))
+    index_terms.append(getUnicodeString(song["title"]))
     
     index_terms.append(getUnicodeString(song["musicinfo"]["acousticelectric"]))
     index_terms.append(getUnicodeString(song["musicinfo"]["vocalinstrumental"]))

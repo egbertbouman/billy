@@ -37,7 +37,7 @@ class API(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def session(self):
+    def session(self, **kwargs):
         # Generate a token while avoiding collisions
         token = binascii.b2a_hex(os.urandom(20))
         while self.get_session(token) is not None:
@@ -51,7 +51,7 @@ class API(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def playlists(self, token=None, search=None):
+    def playlists(self, token=None, search=None, **kwargs):
         if cherrypy.request.method == 'OPTIONS':
             cherrypy.response.headers['Connection'] = 'keep-alive'
             cherrypy.response.headers['Access-Control-Max-Age'] = '1440'
@@ -84,7 +84,7 @@ class API(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def tracks(self, query=None, id=None):
+    def tracks(self, query=None, id=None, **kwargs):
         # TODO: use dataset
         if bool(query) == bool(id):
             return self.error('please use either the query or the id param', 400)
@@ -100,7 +100,7 @@ class API(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def recommend(self, token, name):
+    def recommend(self, token, name, **kwargs):
         session = self.get_session(token)
         if session is None:
             return self.error('cannot find session', 404)

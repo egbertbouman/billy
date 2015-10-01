@@ -149,13 +149,11 @@
                         <label for="playlist-description" class="control-label">Purpose</label>
                       <textarea id="playlist-description" class="form-control" rows="3"  placeholder="For what purpose would you like to use this playlist? Please enter a short description here."  required></textarea>
                     </div>
-                  </form>
                 </div>
-
                 <div class="modal-footer">
                   <button type="button" class="btn btn-default" id="new-playlist-close2">Close</button>
                   <button id="new-playlist-save" type="submit" class="btn btn-primary" form="new-playlist-form">Save</button>
-                </div>
+                </div></form>
               </div>
             </div>
 
@@ -221,7 +219,8 @@
       });
 
       $(billy.playlist.cssSelector.jPlayer).bind($.jPlayer.event.ready, function() {
-        billy.load_from_server();
+          $.ajaxSetup({ cache: false });
+          billy.load_from_server();
       });
 
       $('#new-playlist-close1').add($('#new-playlist-close2')).click(function (evt) {

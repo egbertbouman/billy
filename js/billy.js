@@ -59,7 +59,10 @@ billy = {};
         if (this.token !== undefined) {
             // Load playlists from server and show them to the user
             $.getJSON(self.api_playlists.format(this.token, ''), function(data) {
-                self.add_playlists(data);
+                if ($.isEmptyObject(data))
+                     self.create_playlist();
+                else
+                     self.add_playlists(data);
             })
             .fail(function() {
                 // No remote playlists available. Create a new playlist.

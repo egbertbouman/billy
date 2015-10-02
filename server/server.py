@@ -153,9 +153,7 @@ def main(argv):
                         'response.headers.connection': "close"}}
         app = cherrypy.tree.mount(StaticContent(), '/billy', config)
 
-    config = {'/': {'server.thread_pool': 1,
-                    'tools.CORS.on': True,
-                    'tools.sessions.on': True,
+    config = {'/': {'tools.CORS.on': True,
                     'tools.response_headers.on': True,
                     'tools.response_headers.headers': [('Content-Type', 'text/plain')]}}
     app = cherrypy.tree.mount(api, '/api', config)

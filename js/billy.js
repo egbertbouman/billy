@@ -207,10 +207,9 @@ billy = {};
             target.empty();
 
             // If we do not have results, let the user know
-            if (data['results'].length == 0) {
+            if (data['results'].length == 0)
                 target.append('No results found');
-                return;
-            }
+
             // If we do have results, show them
             $.each(data['results'], function(key, val) {
 
@@ -267,7 +266,8 @@ billy = {};
 
             if (callback !== undefined)
                 callback();
-          $("[data-toggle=popover]").popover({ html : true, container: 'body'});
+
+            $("[data-toggle=popover]").popover({html : true, container: 'body'});
         });
     }
 

@@ -29,7 +29,7 @@ As for browsers: we mostly developed and tested Billy using Google Chrome, and c
 
 # How is my data stored?
 
-We do not store any data that can be traced to individual users, and for ease of instant use, we also do not work with user profile management at this stage. We also won't share playlists you created with other users in the current Billy release (if we may wish to do it in a later release, we will ask your explicit permission).
+We do not store any data that can be traced to personal characteristics of individual users, and for ease of instant use, we also do not work with user profile management at this stage. We also won't share playlists you created with other users in the current Billy release (if we may wish to do it in a later release, we will ask your explicit permission).
 
 We will try to store your playlist state as a cookie, so you can resume with an existing collection when revisiting Billy from the same browser, if the browser does not auto-remove cookies after a session. Alternatively, you can export and import dumps of your playlists through the Import/Export functionality.
 

@@ -8,7 +8,7 @@ billy = {};
 (function(billy, $) {
 
     billy.token = undefined;
-    billy.search_results = {};
+    billy.results = {};
     billy.playlists = {};
     billy.playlist_name = undefined;
     billy.playlist = new jPlayerPlaylist({
@@ -200,6 +200,10 @@ billy = {};
             if (!self.check_api_response(data)) {
                 return;
             }
+
+            // Find out which track is highlighted (if any)
+            var current = $('#results .list-group').children('.jp-playlist-current').data('track-id');
+
             target.empty();
 
             // If we do not have results, let the user know
@@ -219,7 +223,7 @@ billy = {};
                 if (!('vartags' in val['musicinfo']['tags']))
                     val['musicinfo']['tags']['vartags'] = [];
 
-                self.search_results[val['id']] = {
+                self.results[val['id']] = {
                     title: val['name'],
                     artist: val['artist_name'],
                     mp3: val['audio'],
@@ -228,40 +232,58 @@ billy = {};
                     id: val['id']
                 };
 
-                var item_html = '<li class="list-group-item shorten">';
+                var item_html = '<li class="list-group-item shorten" data-track-id="' + val['id'] + '">';
 
                 var tags_html = self.create_tags_popover(val['musicinfo']);
 
                 item_html += '<div class="pull-right m-l btn-group">';
-                item_html += '<a href="#" onclick="return false;" data-toggle="popover" data-placement="bottom" tabindex="0" data-trigger="focus" title="Tags" data-content="' + tags_html + '" class="m-r-sm"><span class="glyphicon glyphicon-info-sign"></span></a>';
-                item_html += '<a href="#" onclick="billy.play_track(' + val['id'] + '); return false;" class="m-r-sm"><span class="glyphicon glyphicon-play-circle"></span></a>';
-                item_html += '<a href="#" onclick="billy.add_track(' + val['id'] + '); return false;" class="m-r-sm"><span class="glyphicon glyphicon-remove-circle rotate-45"></span></a>';
+                item_html += '<a href="#" data-toggle="popover" data-placement="bottom" tabindex="0" data-trigger="focus" title="Tags" data-content="' + tags_html + '" class="m-r-sm"><span class="glyphicon glyphicon-info-sign"></span></a>';
+                item_html += '<a href="#" data-action="play" class="m-r-sm"><span class="glyphicon glyphicon-play-circle"></span></a>';
+                item_html += '<a href="#" data-action="add" class="m-r-sm"><span class="glyphicon glyphicon-remove-circle rotate-45"></span></a>';
 
                 item_html += '</div>';
 
-                item_html += '<a class="img-thumbnail cover-art" href="#" onclick="billy.play_track(' + val['id'] + '); return false;" ><span class="rollover"></span><img alt="" src=' + val['image'] + '></a>';
+                item_html += '<a href="#" data-action="play" class="img-thumbnail cover-art"><span class="rollover"></span><img alt="" src=' + val['image'] + '></a>';
                 item_html += val['name'] + ' - ' + val['artist_name'];
 
                 item_html += '</li>';
 
-                $(item_html).appendTo(target);
+                var item = $(item_html).appendTo(target);
+
+                if (current == val['id'])
+                    item.addClass('jp-playlist-current');
             });
+            // Bind event handlers
+            target.off("click", "a").on("click", "a", function(e) {
+                e.preventDefault();
+                var action = $(this).data("action");
+                var item = $(this).parents('.list-group-item');
+
+                if (action === 'play')
+                    self.play_track(item.data('track-id'));
+                else if (action === 'add')
+                    self.add_track(item.data('track-id'));
+            });
+
             if (callback !== undefined)
                 callback();
           $("[data-toggle=popover]").popover({ html : true, container: 'body'});
         });
     }
 
-    billy.add_track = function(jamendo_id) {
-        if (jamendo_id in this.search_results) {
-            this.playlist.add(this.search_results[jamendo_id]);
+    billy.add_track = function(track_id) {
+        if (track_id in this.results) {
+            this.playlist.add(this.results[track_id]);
             this.save_to_server();
         }
     }
 
-    billy.play_track = function(jamendo_id) {
-        if (jamendo_id in this.search_results) {
-            $(this.playlist.cssSelector.jPlayer).jPlayer("setMedia", {mp3: this.search_results[jamendo_id]['mp3']}).jPlayer("play");
+    billy.play_track = function(track_id) {
+        if (track_id in this.results) {
+            $(this.playlist.cssSelector.jPlayer).jPlayer("setMedia", {mp3: this.results[track_id]['mp3']}).jPlayer("play");
+            // Set highlighting
+            $('#results .list-group').children(".jp-playlist-current").removeClass("jp-playlist-current");
+            $('#results .list-group-item[data-track-id="' + track_id + '"]').addClass('jp-playlist-current');
             // Reset playlist index
             this.playlist.current = undefined;
             this.playlist._refresh(true);

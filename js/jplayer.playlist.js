@@ -458,6 +458,7 @@
 			} else {
 				this.current = 0;
 			}
+			$('#results .list-group').children(".jp-playlist-current").removeClass("jp-playlist-current");
 		},
 		play: function(index) {
 			index = (index < 0) ? this.original.length + index : index; // Negative index relates to end of array.

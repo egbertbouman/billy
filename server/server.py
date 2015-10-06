@@ -2,6 +2,7 @@
 import os
 import sys
 import json
+import time
 import urllib
 import argparse
 import requests
@@ -19,13 +20,15 @@ class API(object):
     jamendo_url = 'https://api.jamendo.com/v3.0/tracks/'
     client_id = '9d9f42e3'
 
-    def __init__(self, dataset):
+    def __init__(self, dataset, users):
         self.client = MongoClient('127.0.0.1', 27017)
         self.db = self.client['billy']
 
         self.dataset = dataset
         self.dataset_dict = {item['id']: item for item in dataset}
         self.index_dir = os.path.join(CURRENT_DIR, 'localsearch', 'index')
+
+        self.users = users
 
     def get_session(self, token):
         sessions = list(self.db.sessions.find({'_id': token}).limit(1))
@@ -62,17 +65,15 @@ class API(object):
             return self.error('please use either the token or the search param', 400)
 
         if token:
+            session = self.get_session(token)
+
+            if session is None:
+                return self.error('cannot find session', 404)
+
             if cherrypy.request.method == 'GET':
-                session = self.get_session(token)
-                if session is None:
-                    return self.error('cannot find session', 404)
                 return session['playlists']
 
             elif cherrypy.request.method == 'POST':
-                session = self.get_session(token)
-                if session is None:
-                    return self.error('cannot find session', 404)
-
                 length = int(cherrypy.request.headers['Content-Length'])
                 body = cherrypy.request.body.read(length)
                 json_body = json.loads(body)
@@ -113,6 +114,42 @@ class API(object):
         results = recommendForSongSet(playlist['tracks'], self.dataset, self.index_dir)
         return {'results': results}
 
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def clicklog(self, token=None, **kwargs):
+        if cherrypy.request.method == 'OPTIONS':
+            cherrypy.response.headers['Connection'] = 'keep-alive'
+            cherrypy.response.headers['Access-Control-Max-Age'] = '1440'
+            cherrypy.response.headers['Access-Control-Allow-Headers'] = 'Authorization,X-Auth-Token,Content-Type,Accept'
+            return {}
+
+        elif cherrypy.request.method == 'GET':
+            # Make sure the user is authorized (HTTP digest authentication)
+            try:
+                cherrypy.lib.auth.digest_auth('server.py', self.users)
+            except cherrypy.HTTPError, e:
+                cherrypy.serving.response.headers['Access-Control-Expose-Headers'] = 'Www-Authenticate'
+                raise e
+
+            clicklog = list(self.db.clicklog.find({}, {'_id': False}).sort('_id', -1).limit(200))
+            return clicklog
+
+        elif cherrypy.request.method == 'POST':
+            session = self.get_session(token)
+            if session is None:
+                return self.error('cannot find session', 404)
+
+            length = int(cherrypy.request.headers['Content-Length'])
+            body = cherrypy.request.body.read(length)
+            json_body = json.loads(body)
+
+            json_body['token'] = token
+            json_body['user-agent'] = cherrypy.request.headers.get('User-Agent', '')
+            json_body['ip'] = cherrypy.request.remote.ip
+            json_body['time'] = int(time.time())
+
+            self.db.clicklog.insert(json_body)
+
 
 class StaticContent(object):
 
@@ -128,6 +165,7 @@ def main(argv):
         parser.add_argument('-p', '--port', help='Listen port', required=True)
         parser.add_argument('-d', '--data', help='JSON formatted dataset', required=True)
         parser.add_argument('-s', '--static', help='Directory with static content (served from http://server/billy)', required=False)
+        parser.add_argument('-u', '--users', help='Users that are allowed to view the clicklog (e.g. user1:pass1,user2:pass2)', required=False)
         parser.add_help = True
         args = parser.parse_args(sys.argv[1:])
 
@@ -140,8 +178,8 @@ def main(argv):
     cherrypy.tools.CORS = cherrypy.Tool('before_handler', CORS)
 
     dataset = json.loads(urllib.urlopen(args.data).read())
-    api = API(dataset)
-
+    users = dict([user.split(':') for user in args.users.split(',')]) if args.users else {}
+    api = API(dataset, users)
 
     if args.static:
         html_dir = os.path.abspath(args.static)
@@ -160,6 +198,7 @@ def main(argv):
 
     server = cherrypy._cpserver.Server()
     server.socket_port = int(args.port)
+    server.max_request_body_size = 10485760
     server._socket_host = '0.0.0.0'
     server.thread_pool = 5
     server.subscribe()

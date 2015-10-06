@@ -23,6 +23,7 @@ billy = {};
     billy.api_playlists = billy.api_base + '/playlists?token={0}&search={1}';
     billy.api_tracks = billy.api_base + '/tracks?query={0}&id={1}';
     billy.api_recommend = billy.api_base + '/recommend?token={0}&name={1}';
+    billy.api_clicklog = billy.api_base + '/clicklog?token={0}';
 
     billy.add_playlists = function(playlists) {
         // Add playlists + add links to the playlist tabs
@@ -275,6 +276,12 @@ billy = {};
         if (track_id in this.results) {
             this.playlist.add(this.results[track_id]);
             this.save_to_server();
+            this.clicklog({
+                track_id: track_id,
+                playlist_name: this.playlist_name,
+                tab: $("#results .tab-pane").filter(function() { return $(this).css("display") !== "none" }).attr('id'),
+                query: $("#search-query").val()
+            });
         }
     }
 
@@ -288,6 +295,18 @@ billy = {};
             this.playlist.current = undefined;
             this.playlist._refresh(true);
         }
+    }
+
+    billy.clicklog = function(data) {
+        // Post clicklog data to server
+        $.ajax({
+            type: 'POST',
+            url: this.api_clicklog.format(this.token),
+            contentType: "application/json",
+            processData: false,
+            data: JSON.stringify(data),
+            dataType: "text"
+        });
     }
 
     billy.check_api_response = function(data) {

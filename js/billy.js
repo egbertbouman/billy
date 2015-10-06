@@ -275,6 +275,13 @@ billy = {};
     billy.add_track = function(track_id) {
         if (track_id in this.results) {
             this.playlist.add(this.results[track_id]);
+            if ($('#results .list-group').children('.jp-playlist-current').data('track-id') == track_id) {
+                // Change the playlist state if the track is currently playing
+                var index = this.playlist.playlist.length - 1
+                this.playlist.current = index;
+                this.playlist._highlight(index);
+                $('#results .list-group').children(".jp-playlist-current").removeClass("jp-playlist-current");
+            }
             this.save_to_server();
             this.clicklog({
                 track_id: track_id,

@@ -13,6 +13,10 @@
  * Requires:
  *  - jQuery 1.7.0+
  *  - jPlayer 2.8.2+
+ *
+ *
+ * Modified for use with Billy
+ * 
  */
 
 /*global jPlayerPlaylist:true */

@@ -116,7 +116,7 @@ class API(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def clicklog(self, token=None, **kwargs):
+    def clicklog(self, token=None, limit=0, **kwargs):
         if cherrypy.request.method == 'OPTIONS':
             cherrypy.response.headers['Connection'] = 'keep-alive'
             cherrypy.response.headers['Access-Control-Max-Age'] = '1440'
@@ -131,7 +131,7 @@ class API(object):
                 cherrypy.serving.response.headers['Access-Control-Expose-Headers'] = 'Www-Authenticate'
                 raise e
 
-            clicklog = list(self.db.clicklog.find({}, {'_id': False}).sort('_id', -1).limit(200))
+            clicklog = list(self.db.clicklog.find({}, {'_id': False}).sort('_id', -1).limit(int(limit)))
             return clicklog
 
         elif cherrypy.request.method == 'POST':

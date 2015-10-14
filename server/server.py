@@ -20,14 +20,15 @@ class API(object):
     jamendo_url = 'https://api.jamendo.com/v3.0/tracks/'
     client_id = '9d9f42e3'
 
-    def __init__(self, dataset, users):
+    def __init__(self, dataset, waveforms, users):
         self.client = MongoClient('127.0.0.1', 27017)
         self.db = self.client['billy']
 
-        self.dataset = dataset
-        self.dataset_dict = {item['id']: item for item in dataset}
         self.index_dir = os.path.join(CURRENT_DIR, 'localsearch', 'index')
 
+        self.dataset = dataset
+        self.dataset_dict = {item['id']: item for item in dataset}
+        self.waveforms = waveforms
         self.users = users
 
     def get_session(self, token):
@@ -86,13 +87,12 @@ class API(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def tracks(self, query=None, id=None, **kwargs):
-        # TODO: use dataset
         if bool(query) == bool(id):
             return self.error('please use either the query or the id param', 400)
 
         if id:
-            if id in self.dataset:
-                return self.dataset[id]
+            if id in self.dataset_dict:
+                return self.dataset_dict[id]
             return self.error('track does not exist', 404)
 
         results = search(self.index_dir, query)
@@ -150,6 +150,14 @@ class API(object):
 
             self.db.clicklog.insert(json_body)
 
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def waveform(self, id, **kwargs):
+        if id not in self.waveforms:
+            return self.error('cannot find waveform', 404)
+
+        return {'waveform': self.waveforms[id]}
+
 
 class StaticContent(object):
 
@@ -164,6 +172,7 @@ def main(argv):
     try:
         parser.add_argument('-p', '--port', help='Listen port', required=True)
         parser.add_argument('-d', '--data', help='JSON formatted dataset', required=True)
+        parser.add_argument('-w', '--wave', help='JSON formatted waveforms', required=False)
         parser.add_argument('-s', '--static', help='Directory with static content (served from http://server/billy)', required=False)
         parser.add_argument('-u', '--users', help='Users that are allowed to view the clicklog (e.g. user1:pass1,user2:pass2)', required=False)
         parser.add_help = True
@@ -178,8 +187,9 @@ def main(argv):
     cherrypy.tools.CORS = cherrypy.Tool('before_handler', CORS)
 
     dataset = json.loads(urllib.urlopen(args.data).read())
+    waveforms = json.loads(urllib.urlopen(args.wave).read()) if args.wave else {}
     users = dict([user.split(':') for user in args.users.split(',')]) if args.users else {}
-    api = API(dataset, users)
+    api = API(dataset, waveforms, users)
 
     if args.static:
         html_dir = os.path.abspath(args.static)

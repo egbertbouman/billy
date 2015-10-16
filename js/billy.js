@@ -301,6 +301,22 @@ billy = {};
             // Reset playlist index
             this.playlist.current = undefined;
             this.playlist._refresh(true);
+
+            $.getJSON('http://musesync.ewi.tudelft.nl/api/waveform?id=' + track_id, function(data) {
+                settings = {
+                    canvas_width: $('#waveform').width(),
+                    canvas_height: $('#waveform').height(),
+                    bar_width: 3,
+                    bar_gap : 0.2,
+                    wave_color: "#aaa",
+                    download: false,
+                    onComplete: function(png, pixels) {
+                        var context = $("#waveform")[0].getContext('2d');
+                        context.putImageData(pixels, 0, 0);
+                    }
+                };
+                SoundCloudWaveform.generate(data['waveform'], settings);
+            });
         }
     }
 

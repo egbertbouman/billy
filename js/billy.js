@@ -24,6 +24,14 @@ billy = {};
     billy.api_tracks = billy.api_base + '/tracks?query={0}&id={1}';
     billy.api_recommend = billy.api_base + '/recommend?token={0}&name={1}';
     billy.api_clicklog = billy.api_base + '/clicklog?token={0}';
+    billy.api_waveform = billy.api_base + '/waveform?id={0}';
+
+    $(billy.playlist.cssSelector.jPlayer).bind($.jPlayer.event.loadstart, function(event) {
+        billy.set_waveform(event.jPlayer.status.media.id);
+    });
+    $(billy.playlist.cssSelector.jPlayer).bind($.jPlayer.event.timeupdate + " " + $.jPlayer.event.ended, function() {
+        billy.update_waveform();
+    });
 
     billy.add_playlists = function(playlists) {
         // Add playlists + add links to the playlist tabs
@@ -294,29 +302,13 @@ billy = {};
 
     billy.play_track = function(track_id) {
         if (track_id in this.results) {
-            $(this.playlist.cssSelector.jPlayer).jPlayer("setMedia", {mp3: this.results[track_id]['mp3']}).jPlayer("play");
+            $(this.playlist.cssSelector.jPlayer).jPlayer("setMedia", {id: track_id, mp3: this.results[track_id]['mp3']}).jPlayer("play");
             // Set highlighting
             $('#results .list-group').children(".jp-playlist-current").removeClass("jp-playlist-current");
             $('#results .list-group-item[data-track-id="' + track_id + '"]').addClass('jp-playlist-current');
             // Reset playlist index
             this.playlist.current = undefined;
             this.playlist._refresh(true);
-
-            $.getJSON('http://musesync.ewi.tudelft.nl/api/waveform?id=' + track_id, function(data) {
-                settings = {
-                    canvas_width: $('#waveform').width(),
-                    canvas_height: $('#waveform').height(),
-                    bar_width: 3,
-                    bar_gap : 0.2,
-                    wave_color: "#aaa",
-                    download: false,
-                    onComplete: function(png, pixels) {
-                        var context = $("#waveform")[0].getContext('2d');
-                        context.putImageData(pixels, 0, 0);
-                    }
-                };
-                SoundCloudWaveform.generate(data['waveform'], settings);
-            });
         }
     }
 
@@ -375,6 +367,52 @@ billy = {};
         tags_html += "</td></tr></div>";
 
         return tags_html;
+    }
+
+    billy.set_waveform = function(track_id) {
+        var self = this;
+
+        $.getJSON(self.api_waveform.format(track_id), function(data) {
+            settings = {
+                canvas_width: $('#waveform').width(),
+                canvas_height: $('#waveform').height(),
+                bar_width: 3,
+                bar_gap : 0.2,
+                wave_color: "#337ab7",
+                download: false,
+                onComplete: function(png, pixels) {
+                    self.waveform = pixels;
+                    self.waveform_data = new Uint8ClampedArray(pixels.data);
+                    self.waveform_data_gs = new Uint8ClampedArray(pixels.data);
+
+                    for(var i = 0; i < self.waveform_data.length; i += 4) {
+                      var brightness = (self.waveform_data[i] + self.waveform_data[i + 1] + self.waveform_data[i + 2]) / 3;
+                      brightness *= 1.5;
+                      self.waveform_data_gs[i] = brightness;
+                      self.waveform_data_gs[i + 1] = brightness;
+                      self.waveform_data_gs[i + 2] = brightness;
+                    }
+
+                    self.update_waveform();
+                }
+            };
+            SoundCloudWaveform.generate(data['waveform'], settings);
+        });
+    }
+
+    billy.update_waveform = function() {
+        if (this.waveform === undefined)
+            return;
+
+        var context = $("#waveform")[0].getContext('2d');
+
+        // Draw background
+        this.waveform.data.set(this.waveform_data_gs);
+        context.putImageData(this.waveform, 0, 0);
+
+        // Draw position within the track
+        this.waveform.data.set(this.waveform_data);
+        context.putImageData(this.waveform, 0, 0, 0, 0, $('.jp-play-bar').width(), this.waveform.height);
     }
 
 })(billy, jQuery);

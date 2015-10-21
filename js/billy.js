@@ -381,16 +381,18 @@ billy = {};
                 wave_color: "#337ab7",
                 download: false,
                 onComplete: function(png, pixels) {
-                    self.waveform = pixels;
-                    self.waveform_data = new Uint8ClampedArray(pixels.data);
-                    self.waveform_data_gs = new Uint8ClampedArray(pixels.data);
+                    var context = $("#waveform")[0].getContext('2d');
 
-                    for(var i = 0; i < self.waveform_data.length; i += 4) {
-                      var brightness = (self.waveform_data[i] + self.waveform_data[i + 1] + self.waveform_data[i + 2]) / 3;
-                      brightness *= 1.5;
-                      self.waveform_data_gs[i] = brightness;
-                      self.waveform_data_gs[i + 1] = brightness;
-                      self.waveform_data_gs[i + 2] = brightness;
+                    self.waveform = pixels;
+                    self.waveform_gs = context.createImageData(pixels)
+
+                    for (var i = 0; i < pixels.data.length; i += 4) {
+                        var brightness = (pixels.data[i] + pixels.data[i + 1] + pixels.data[i + 2]) / 3;
+                        brightness *= 1.5;
+                        self.waveform_gs.data[i] = brightness;
+                        self.waveform_gs.data[i + 1] = brightness;
+                        self.waveform_gs.data[i + 2] = brightness;
+                        self.waveform_gs.data[i + 3] = pixels.data[i + 3];
                     }
 
                     self.update_waveform();
@@ -407,11 +409,9 @@ billy = {};
         var context = $("#waveform")[0].getContext('2d');
 
         // Draw background
-        this.waveform.data.set(this.waveform_data_gs);
-        context.putImageData(this.waveform, 0, 0);
+        context.putImageData(this.waveform_gs, 0, 0);
 
         // Draw position within the track
-        this.waveform.data.set(this.waveform_data);
         context.putImageData(this.waveform, 0, 0, 0, 0, $('.jp-play-bar').width(), this.waveform.height);
     }
 

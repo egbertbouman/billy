@@ -158,3 +158,6 @@ span.rollover:hover {
 .nav-tabs {
   margin-bottom: 10px;
 }
+#waveform {
+  cursor: pointer;
+}

@@ -32,6 +32,13 @@ billy = {};
     $(billy.playlist.cssSelector.jPlayer).bind($.jPlayer.event.timeupdate + " " + $.jPlayer.event.ended, function() {
         billy.update_waveform();
     });
+    $('#waveform').on('mousemove mouseout', function (event) {
+        var position = (event.type == 'mousemove') ? event.clientX - $(this).offset().left : 0;
+        if (billy.waveform_mouse_pos !== position) {
+            billy.waveform_mouse_pos = position;
+            billy.update_waveform();
+        }
+    });
 
     billy.add_playlists = function(playlists) {
         // Add playlists + add links to the playlist tabs
@@ -383,10 +390,17 @@ billy = {};
                 onComplete: function(png, pixels) {
                     var context = $("#waveform")[0].getContext('2d');
 
-                    self.waveform = pixels;
-                    self.waveform_gs = context.createImageData(pixels)
+                    // Waveform image data in different colors
+                    self.waveform_b = pixels;
+                    self.waveform_d = context.createImageData(pixels);
+                    self.waveform_gs = context.createImageData(pixels);
 
                     for (var i = 0; i < pixels.data.length; i += 4) {
+                        self.waveform_d.data[i] = pixels.data[i] - 80;
+                        self.waveform_d.data[i + 1] = pixels.data[i + 1] - 80;
+                        self.waveform_d.data[i + 2] = pixels.data[i + 2] - 80;
+                        self.waveform_d.data[i + 3] = pixels.data[i + 3] - 80;
+
                         var brightness = (pixels.data[i] + pixels.data[i + 1] + pixels.data[i + 2]) / 3;
                         brightness *= 1.5;
                         self.waveform_gs.data[i] = brightness;
@@ -403,16 +417,29 @@ billy = {};
     }
 
     billy.update_waveform = function() {
-        if (this.waveform === undefined)
+        if (this.waveform_b === undefined)
             return;
 
         var context = $("#waveform")[0].getContext('2d');
+
+        var play_position = $('.jp-play-bar').width();
+        var mouse_position = this.waveform_mouse_pos || 0;
 
         // Draw background
         context.putImageData(this.waveform_gs, 0, 0);
 
         // Draw position within the track
-        context.putImageData(this.waveform, 0, 0, 0, 0, $('.jp-play-bar').width(), this.waveform.height);
+        context.putImageData(this.waveform_b, 0, 0, 0, 0, play_position, this.waveform_b.height);
+
+        if (mouse_position === 0)
+            return;
+
+        // Draw hover
+        if (mouse_position > play_position)
+            context.putImageData(this.waveform_d, 0, 0, play_position, 0, mouse_position - play_position, this.waveform_b.height);
+        else
+            context.putImageData(this.waveform_d, 0, 0, mouse_position, 0, play_position - mouse_position, this.waveform_b.height);
+
     }
 
 })(billy, jQuery);

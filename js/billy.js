@@ -25,6 +25,7 @@ billy = {};
     billy.api_recommend = billy.api_base + '/recommend?token={0}&name={1}';
     billy.api_clicklog = billy.api_base + '/clicklog?token={0}';
     billy.api_waveform = billy.api_base + '/waveform?id={0}';
+    billy.api_download = billy.api_base + '/download?id={0}';
 
     $(billy.playlist.cssSelector.jPlayer).bind($.jPlayer.event.loadstart, function(event) {
         billy.set_waveform(event.jPlayer.status.media.id);
@@ -253,6 +254,7 @@ billy = {};
 
                 item_html += '<div class="pull-right m-l btn-group">';
                 item_html += '<a href="#" data-toggle="popover" data-placement="bottom" tabindex="0" data-trigger="focus" title="Tags" data-content="' + tags_html + '" class="m-r-sm"><span class="glyphicon glyphicon-info-sign"></span></a>';
+                item_html += '<a href="#" onclick="window.location = \'' + self.api_download.format(val['id']) + '\'" class="m-r-sm"><span class="glyphicon glyphicon-record"></span></a>';
                 item_html += '<a href="#" data-action="play" class="m-r-sm"><span class="glyphicon glyphicon-play-circle"></span></a>';
                 item_html += '<a href="#" data-action="add" class="m-r-sm"><span class="glyphicon glyphicon-remove-circle rotate-45"></span></a>';
 

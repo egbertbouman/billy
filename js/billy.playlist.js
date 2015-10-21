@@ -261,6 +261,7 @@
 		    listItem += '<a href="#" class="m-r-sm ' + this.options.playlistOptions.moveupItemClass +'"><span class="glyphicon glyphicon-circle-arrow-up"></span></a>';
 		    listItem += '<a href="#" class="m-r-sm ' + this.options.playlistOptions.movedownItemClass +'"><span class="glyphicon glyphicon-circle-arrow-down"></span></a>';
             listItem += '<a href="#" onclick="return false;" data-toggle="popover" data-placement="bottom" tabindex="0" data-trigger="focus" title="Tags" data-content="' + billy.create_tags_popover(media['musicinfo']) + '" class="m-r-sm"><span class="glyphicon glyphicon-info-sign"></span></a>';
+            listItem += '<a href="#" onclick="window.location = \'' + billy.api_download.format(media.id) + '\'; return false;" class="m-r-sm"><span class="glyphicon glyphicon-record"></span></a>';
             listItem += '<a href="#" class="m-r-sm ' + this.options.playlistOptions.itemClass +'"><span class="glyphicon glyphicon-play-circle"></span></a>';
             listItem += '<a href="#" class="m-r-sm ' + this.options.playlistOptions.removeItemClass +'"><span class="glyphicon glyphicon-remove-circle"></span></a>';
             listItem += '</div>';

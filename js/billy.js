@@ -23,6 +23,23 @@ billy = {};
     billy.api_playlists = billy.api_base + '/playlists?token={0}&search={1}';
     billy.api_tracks = billy.api_base + '/tracks?query={0}&id={1}';
     billy.api_recommend = billy.api_base + '/recommend?token={0}&name={1}';
+    billy.api_clicklog = billy.api_base + '/clicklog?token={0}';
+    billy.api_waveform = billy.api_base + '/waveform?id={0}';
+    billy.api_download = billy.api_base + '/download?id={0}';
+
+    $(billy.playlist.cssSelector.jPlayer).bind($.jPlayer.event.loadstart, function(event) {
+        billy.set_waveform(event.jPlayer.status.media.id);
+    });
+    $(billy.playlist.cssSelector.jPlayer).bind($.jPlayer.event.timeupdate + " " + $.jPlayer.event.ended, function() {
+        billy.update_waveform();
+    });
+    $('#waveform').on('mousemove mouseout', function (event) {
+        var position = (event.type == 'mousemove') ? event.clientX - $(this).offset().left : 0;
+        if (billy.waveform_mouse_pos !== position) {
+            billy.waveform_mouse_pos = position;
+            billy.update_waveform();
+        }
+    });
 
     billy.add_playlists = function(playlists) {
         // Add playlists + add links to the playlist tabs
@@ -237,6 +254,7 @@ billy = {};
 
                 item_html += '<div class="pull-right m-l btn-group">';
                 item_html += '<a href="#" data-toggle="popover" data-placement="bottom" tabindex="0" data-trigger="focus" title="Tags" data-content="' + tags_html + '" class="m-r-sm"><span class="glyphicon glyphicon-info-sign"></span></a>';
+                item_html += '<a href="#" onclick="window.location = \'' + self.api_download.format(val['id']) + '\'" class="m-r-sm"><span class="glyphicon glyphicon-record"></span></a>';
                 item_html += '<a href="#" data-action="play" class="m-r-sm"><span class="glyphicon glyphicon-play-circle"></span></a>';
                 item_html += '<a href="#" data-action="add" class="m-r-sm"><span class="glyphicon glyphicon-remove-circle rotate-45"></span></a>';
 
@@ -274,13 +292,26 @@ billy = {};
     billy.add_track = function(track_id) {
         if (track_id in this.results) {
             this.playlist.add(this.results[track_id]);
+            if ($('#results .list-group').children('.jp-playlist-current').data('track-id') == track_id) {
+                // Change the playlist state if the track is currently playing
+                var index = this.playlist.playlist.length - 1
+                this.playlist.current = index;
+                this.playlist._highlight(index);
+                $('#results .list-group').children(".jp-playlist-current").removeClass("jp-playlist-current");
+            }
             this.save_to_server();
+            this.clicklog({
+                track_id: track_id,
+                playlist_name: this.playlist_name,
+                tab: $("#results .tab-pane").filter(function() { return $(this).css("display") !== "none" }).attr('id'),
+                query: $("#search-query").val()
+            });
         }
     }
 
     billy.play_track = function(track_id) {
         if (track_id in this.results) {
-            $(this.playlist.cssSelector.jPlayer).jPlayer("setMedia", {mp3: this.results[track_id]['mp3']}).jPlayer("play");
+            $(this.playlist.cssSelector.jPlayer).jPlayer("setMedia", {id: track_id, mp3: this.results[track_id]['mp3']}).jPlayer("play");
             // Set highlighting
             $('#results .list-group').children(".jp-playlist-current").removeClass("jp-playlist-current");
             $('#results .list-group-item[data-track-id="' + track_id + '"]').addClass('jp-playlist-current');
@@ -288,6 +319,18 @@ billy = {};
             this.playlist.current = undefined;
             this.playlist._refresh(true);
         }
+    }
+
+    billy.clicklog = function(data) {
+        // Post clicklog data to server
+        $.ajax({
+            type: 'POST',
+            url: this.api_clicklog.format(this.token),
+            contentType: "application/json",
+            processData: false,
+            data: JSON.stringify(data),
+            dataType: "text"
+        });
     }
 
     billy.check_api_response = function(data) {
@@ -333,6 +376,72 @@ billy = {};
         tags_html += "</td></tr></div>";
 
         return tags_html;
+    }
+
+    billy.set_waveform = function(track_id) {
+        var self = this;
+
+        $.getJSON(self.api_waveform.format(track_id), function(data) {
+            settings = {
+                canvas_width: $('#waveform').width(),
+                canvas_height: $('#waveform').height(),
+                bar_width: 3,
+                bar_gap : 0.2,
+                wave_color: "#337ab7",
+                download: false,
+                onComplete: function(png, pixels) {
+                    var context = $("#waveform")[0].getContext('2d');
+
+                    // Waveform image data in different colors
+                    self.waveform_b = pixels;
+                    self.waveform_d = context.createImageData(pixels);
+                    self.waveform_gs = context.createImageData(pixels);
+
+                    for (var i = 0; i < pixels.data.length; i += 4) {
+                        self.waveform_d.data[i] = pixels.data[i] - 80;
+                        self.waveform_d.data[i + 1] = pixels.data[i + 1] - 80;
+                        self.waveform_d.data[i + 2] = pixels.data[i + 2] - 80;
+                        self.waveform_d.data[i + 3] = pixels.data[i + 3] - 80;
+
+                        var brightness = (pixels.data[i] + pixels.data[i + 1] + pixels.data[i + 2]) / 3;
+                        brightness *= 1.5;
+                        self.waveform_gs.data[i] = brightness;
+                        self.waveform_gs.data[i + 1] = brightness;
+                        self.waveform_gs.data[i + 2] = brightness;
+                        self.waveform_gs.data[i + 3] = pixels.data[i + 3];
+                    }
+
+                    self.update_waveform();
+                }
+            };
+            SoundCloudWaveform.generate(data['waveform'], settings);
+        });
+    }
+
+    billy.update_waveform = function() {
+        if (this.waveform_b === undefined)
+            return;
+
+        var context = $("#waveform")[0].getContext('2d');
+
+        var play_position = $('.jp-play-bar').width();
+        var mouse_position = this.waveform_mouse_pos || 0;
+
+        // Draw background
+        context.putImageData(this.waveform_gs, 0, 0);
+
+        // Draw position within the track
+        context.putImageData(this.waveform_b, 0, 0, 0, 0, play_position, this.waveform_b.height);
+
+        if (mouse_position === 0)
+            return;
+
+        // Draw hover
+        if (mouse_position > play_position)
+            context.putImageData(this.waveform_d, 0, 0, play_position, 0, mouse_position - play_position, this.waveform_b.height);
+        else
+            context.putImageData(this.waveform_d, 0, 0, mouse_position, 0, play_position - mouse_position, this.waveform_b.height);
+
     }
 
 })(billy, jQuery);

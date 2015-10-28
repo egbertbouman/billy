@@ -73,11 +73,14 @@
                     </div>
                     <span class="glyphicon glyphicon-volume-up"></span>
                   </div>
+
                   <div class="jp-time-holder">
                     <div class="jp-current-time"></div>
                     <div class="seek-bar">
-                      <div class="jp-seek-bar progress">
-                        <div class="jp-play-bar progress-bar"></div>
+                      <div class="jp-seek-bar">
+                        <div class="jp-play-bar">
+                            <canvas width='400' height='50' id='waveform'></canvas>
+                        </div>
                       </div>
                     </div>
                     <div class="jp-duration"></div>
@@ -187,8 +190,9 @@
   <script src="js/FileSaver.min.js"></script>
 
   <script src="js/jquery.jplayer.min.js"></script>
-  <script src="js/jplayer.playlist.js"></script>
 
+  <script src="js/billy.waveform.js"></script>
+  <script src="js/billy.playlist.js"></script>
   <script src="js/billy.js"></script>
 
   <script type="text/javascript">

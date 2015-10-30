@@ -8,7 +8,9 @@ import argparse
 import requests
 import cherrypy
 import binascii
+import ConfigParser
 
+from database import *
 from localsearch.localsearch import *
 from pymongo import MongoClient
 
@@ -17,19 +19,9 @@ CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
 
 class API(object):
 
-    jamendo_url = 'https://api.jamendo.com/v3.0/tracks/'
-    client_id = '9d9f42e3'
-
-    def __init__(self, dataset, waveforms, users):
-        self.client = MongoClient('127.0.0.1', 27017)
-        self.db = self.client['billy']
-
+    def __init__(self, db):
+        self.database = db
         self.index_dir = os.path.join(CURRENT_DIR, 'localsearch', 'index')
-
-        self.dataset = dataset
-        self.dataset_dict = {item['id']: item for item in dataset}
-        self.waveforms = waveforms
-        self.users = users
 
     def get_session(self, token):
         sessions = list(self.db.sessions.find({'_id': token}).limit(1))
@@ -47,10 +39,8 @@ class API(object):
         while self.get_session(token) is not None:
             token = binascii.b2a_hex(os.urandom(20))
 
-        self.db.sessions.insert({
-            '_id': token,
-            'playlists': {}
-        })
+        self.db.sessions.insert({'_id': token,
+                                 'playlists': {}})
         return {'token': token}
 
     @cherrypy.expose
@@ -91,9 +81,10 @@ class API(object):
             return self.error('please use either the query or the id param', 400)
 
         if id:
-            if id in self.dataset_dict:
-                return self.dataset_dict[id]
-            return self.error('track does not exist', 404)
+            track = self.database.get_track(id)
+            if track is None:
+                return self.error('track does not exist', 404)
+            return track
 
         results = search(self.index_dir, query)
         results.sort(key=lambda x: x['stats']['playlisted'], reverse=True)
@@ -111,7 +102,11 @@ class API(object):
         if playlist is None:
             return self.error('cannot find playlist', 404)
 
-        results = recommendForSongSet(playlist['tracks'], self.dataset, self.index_dir)
+        results = recommendForSongSet(playlist['tracks'], self.index_dir)
+
+        if results is None:
+            results = self.database.get_random_tracks(20)
+
         return {'results': results}
 
     @cherrypy.expose
@@ -126,7 +121,8 @@ class API(object):
         elif cherrypy.request.method == 'GET':
             # Make sure the user is authorized (HTTP digest authentication)
             try:
-                cherrypy.lib.auth.digest_auth('server.py', self.users)
+                users = {user['name']: user['password'] for user in self.database.get_users()}
+                cherrypy.lib.auth.digest_auth('server.py', users)
             except cherrypy.HTTPError, e:
                 cherrypy.serving.response.headers['Access-Control-Expose-Headers'] = 'Www-Authenticate'
                 raise e
@@ -153,15 +149,16 @@ class API(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def waveform(self, id, **kwargs):
-        if id not in self.waveforms:
+        waveform = self.database.get_waveform(id)
+        if waveform is None:
             return self.error('cannot find waveform', 404)
 
-        return {'waveform': self.waveforms[id]}
+        return {'waveform': waveform['waveform']}
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def download(self, id, **kwargs):
-        if id not in self.dataset_dict:
+        if self.database.get_track(id) is None:
             return self.error('track does not exist', 404)
 
         raise cherrypy.HTTPRedirect('http://storage.jamendo.com/download/track/{id}/mp32/'.format(id=id))
@@ -179,10 +176,10 @@ def main(argv):
 
     try:
         parser.add_argument('-p', '--port', help='Listen port', required=True)
-        parser.add_argument('-d', '--data', help='JSON formatted dataset', required=True)
-        parser.add_argument('-w', '--wave', help='JSON formatted waveforms', required=False)
-        parser.add_argument('-s', '--static', help='Directory with static content (served from http://server/billy)', required=False)
-        parser.add_argument('-u', '--users', help='Users that are allowed to view the clicklog (e.g. user1:pass1,user2:pass2)', required=False)
+        parser.add_argument('-t', '--tracks', help='JSON formatted tracks to be imported into the database', required=False)
+        parser.add_argument('-s', '--sources', help='JSON formatted sources to be imported into the database', required=False)
+        parser.add_argument('-u', '--users', help='JSON formatted admin users to be imported into the database', required=False)
+        parser.add_argument('-d', '--dir', help='Directory with static content (served from http://server/billy)', required=False)
         parser.add_help = True
         args = parser.parse_args(sys.argv[1:])
 
@@ -194,16 +191,51 @@ def main(argv):
         cherrypy.response.headers["Access-Control-Allow-Origin"] = "*"
     cherrypy.tools.CORS = cherrypy.Tool('before_handler', CORS)
 
-    dataset = json.loads(urllib.urlopen(args.data).read())
-    waveforms = json.loads(urllib.urlopen(args.wave).read()) if args.wave else {}
-    users = dict([user.split(':') for user in args.users.split(',')]) if args.users else {}
-    api = API(dataset, waveforms, users)
+    config = ConfigParser.ConfigParser()
+    config.read("billy.cfg")
 
-    if args.static:
-        html_dir = os.path.abspath(args.static)
+    db = Database(config)
+
+    # Import tracks
+    if args.tracks:
+        with open(args.tracks, 'rb') as fp:
+            print 'Importing tracks..',
+            tracks = json.load(fp)
+            for track in tracks:
+                waveform = track.pop('waveform', None)
+
+                track_id = db.add_track(track)
+
+                if track_id and waveform is not None:
+                    db.add_waveform(track_id, waveform)
+            print 'done'
+
+    # Import sources
+    if args.sources:
+        with open(args.sources, 'rb') as fp:
+            print 'Importing sources..',
+            sources = json.load(fp)
+            for source in sources:
+                track_id = db.add_source(source)
+            print 'done'
+
+    # Import users
+    if args.users:
+        with open(args.users, 'rb') as fp:
+            print 'Importing users..',
+            users = json.load(fp)
+            for user in users:
+                db.add_user(user['name'], user['password'])
+            print 'done'
+
+    db.start()
+    api = API(db)
+
+    if args.dir:
+        html_dir = os.path.abspath(args.dir)
         if not os.path.exists(html_dir):
             raise IOError('directory does not exist')
-        config = {'/': {'tools.staticdir.root': os.path.abspath(args.static),
+        config = {'/': {'tools.staticdir.root': os.path.abspath(args.dir),
                         'tools.staticdir.on': True,
                         'tools.staticdir.dir': "",
                         'response.headers.connection': "close"}}

@@ -11,7 +11,7 @@ import binascii
 import ConfigParser
 
 from database import *
-from localsearch.localsearch import *
+from search import *
 from pymongo import MongoClient
 
 CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -21,7 +21,10 @@ class API(object):
 
     def __init__(self, db):
         self.database = db
-        self.index_dir = os.path.join(CURRENT_DIR, 'localsearch', 'index')
+        self.index_dir = os.path.join(CURRENT_DIR, 'data', 'index')
+
+        if not os.path.exists(self.index_dir):
+            os.makedirs(self.index_dir)
 
     def get_session(self, token):
         sessions = list(self.db.sessions.find({'_id': token}).limit(1))

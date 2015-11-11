@@ -4,14 +4,21 @@ import random
 
 # We make use of the Pylucene libraries (see http://lucene.apache.org/pylucene/)
 import lucene
-from java.io import File
-from org.apache.lucene.document import Document, Field, FieldType
-from org.apache.lucene.store import SimpleFSDirectory
-from org.apache.lucene.index import FieldInfo, IndexWriter, IndexWriterConfig, DirectoryReader
-from org.apache.lucene.queryparser.classic import QueryParser
-from org.apache.lucene.analysis.standard import StandardAnalyzer
-from org.apache.lucene.search import IndexSearcher
-from org.apache.lucene.util import Version
+try:
+    from java.io import File
+    from org.apache.lucene.document import Document, Field, FieldType
+    from org.apache.lucene.store import SimpleFSDirectory
+    from org.apache.lucene.index import FieldInfo, IndexWriter, IndexWriterConfig, DirectoryReader
+    from org.apache.lucene.queryparser.classic import QueryParser
+    from org.apache.lucene.analysis.standard import StandardAnalyzer
+    from org.apache.lucene.search import IndexSearcher
+    from org.apache.lucene.util import Version
+    LUCENE3 = False
+except ImportError:
+    # PyLucene 3
+    from lucene import SimpleFSDirectory, System, File, Document, Field, StandardAnalyzer, IndexWriter, \
+                       Version, IndexSearcher, QueryParser, FieldInfo, IndexWriterConfig
+    LUCENE3 = True
 
 lucene.initVM()
 
@@ -29,14 +36,15 @@ def index(music_json_data, index_dir, alternative_spelling_dict={}, analyzer=Sta
 
     writer = IndexWriter(index_dir, config)
 
-    index_terms_field = FieldType()
-    index_terms_field.setIndexed(True)
-    index_terms_field.setStored(False)
+    if not LUCENE3:
+        index_terms_field = FieldType()
+        index_terms_field.setIndexed(True)
+        index_terms_field.setStored(False)
 
-    key_field = FieldType()
-    key_field.setIndexed(False)
-    key_field.setStored(True)
-    key_field.setIndexOptions(FieldInfo.IndexOptions.DOCS_AND_FREQS)
+        key_field = FieldType()
+        key_field.setIndexed(False)
+        key_field.setStored(True)
+        key_field.setIndexOptions(FieldInfo.IndexOptions.DOCS_AND_FREQS)
 
     for song in music_json_data:
         doc = Document()
@@ -44,8 +52,16 @@ def index(music_json_data, index_dir, alternative_spelling_dict={}, analyzer=Sta
         index_terms = ' '.join(getIndexTerms(song, alternative_spelling_dict))
         print 'Indexing song ''%s'' with terms: %s\n' % (song['name'], index_terms)
 
-        doc.add(Field("index_terms", index_terms, index_terms_field))
-        doc.add(Field("json", json.dumps(song), key_field))
+        if not LUCENE3:
+            doc.add(Field("index_terms", index_terms, index_terms_field))
+            doc.add(Field("json", json.dumps(song), key_field))
+        else:
+            field1 = Field("index_terms", index_terms, Field.Store.NO, Field.Index.ANALYZED)
+            field2 = Field("json", json.dumps(song), Field.Store.YES, Field.Index.NO)
+            field2.setIndexOptions(FieldInfo.IndexOptions.DOCS_AND_FREQS)
+
+            doc.add(field1)
+            doc.add(field2)
 
         writer.addDocument(doc)
 
@@ -57,8 +73,8 @@ def index(music_json_data, index_dir, alternative_spelling_dict={}, analyzer=Sta
 def search(index_dir, query, analyzer=StandardAnalyzer(Version.LUCENE_CURRENT), max_results=200):
     lucene.getVMEnv().attachCurrentThread()
 
-    reader = DirectoryReader.open(SimpleFSDirectory(File(index_dir)))
-    searcher = IndexSearcher(reader)
+    dir = SimpleFSDirectory(File(index_dir)) if LUCENE3 else DirectoryReader.open(SimpleFSDirectory(File(index_dir)))
+    searcher = IndexSearcher(dir)
 
     query = QueryParser(Version.LUCENE_CURRENT, "index_terms", analyzer).parse(QueryParser.escape(query.lower()))
 
@@ -70,7 +86,7 @@ def search(index_dir, query, analyzer=StandardAnalyzer(Version.LUCENE_CURRENT), 
         document = searcher.doc(search_result.doc)
         result.append(document.get("json"))
 
-    reader.close()
+    dir.close()
 
     # the result to be returned is a list of JSON dictionaries (one per song)
     return json.loads('[%s]' % ', '.join(result))

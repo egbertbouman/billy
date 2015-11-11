@@ -19,12 +19,9 @@ CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
 
 class API(object):
 
-    def __init__(self, db):
+    def __init__(self, db, search):
         self.database = db
-        self.index_dir = os.path.join(CURRENT_DIR, 'data', 'index')
-
-        if not os.path.exists(self.index_dir):
-            os.makedirs(self.index_dir)
+        self.search = search
 
     def get_session(self, token):
         sessions = list(self.db.sessions.find({'_id': token}).limit(1))
@@ -89,7 +86,7 @@ class API(object):
                 return self.error('track does not exist', 404)
             return track
 
-        results = search(self.index_dir, query)
+        results = self.search.search(query)
         results.sort(key=lambda x: x['stats']['playlisted'], reverse=True)
         return {'results': results}
 
@@ -105,7 +102,7 @@ class API(object):
         if playlist is None:
             return self.error('cannot find playlist', 404)
 
-        results = recommendForSongSet(playlist['tracks'], self.index_dir)
+        results = self.search.recommend(playlist['tracks'])
 
         if results is None:
             results = self.database.get_random_tracks(20)
@@ -232,7 +229,7 @@ def main(argv):
             print 'done'
 
     db.start()
-    api = API(db)
+    api = API(db, Search(os.path.join(CURRENT_DIR, 'data', 'index')))
 
     if args.dir:
         html_dir = os.path.abspath(args.dir)

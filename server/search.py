@@ -22,95 +22,107 @@ except ImportError:
 
 lucene.initVM()
 
-# Builds Lucene index for given dataset.
-# Currently, we will just stack info from multiple metadata together as 'documents' (see getIndexTerms), and consider the raw json as 'keys'.
-# Alternative spellings are optional.
-def index(music_json_data, index_dir, alternative_spelling_dict={}, analyzer=StandardAnalyzer(Version.LUCENE_CURRENT)):
-    if not os.path.exists(index_dir):
-        os.mkdir(index_dir)
 
-    index_dir = SimpleFSDirectory(File(index_dir))
+class Search(object):
 
-    config = IndexWriterConfig(Version.LUCENE_CURRENT, analyzer)
-    config.setOpenMode(IndexWriterConfig.OpenMode.CREATE)
+    def __init__(self, index_dir, alternative_spelling_dict={}):
+        self.index_dir = index_dir
+        self.alternative_spelling_dict = alternative_spelling_dict
+        self.analyzer = StandardAnalyzer(Version.LUCENE_CURRENT)
 
-    writer = IndexWriter(index_dir, config)
+    def index(self, music_json_data):
+        # Builds Lucene index for given dataset.
+        # Currently, we will just stack info from multiple metadata together as 'documents' (see getIndexTerms), and consider the raw json as 'keys'.
+        # Alternative spellings are optional.        
+        if not os.path.exists(self.index_dir):
+            os.makedirs(self.index_dir)
 
-    if not LUCENE3:
-        index_terms_field = FieldType()
-        index_terms_field.setIndexed(True)
-        index_terms_field.setStored(False)
+        dir = SimpleFSDirectory(File(self.index_dir))
 
-        key_field = FieldType()
-        key_field.setIndexed(False)
-        key_field.setStored(True)
-        key_field.setIndexOptions(FieldInfo.IndexOptions.DOCS_AND_FREQS)
+        config = IndexWriterConfig(Version.LUCENE_CURRENT, self.analyzer)
+        config.setOpenMode(IndexWriterConfig.OpenMode.CREATE)
 
-    for song in music_json_data:
-        doc = Document()
-
-        index_terms = ' '.join(getIndexTerms(song, alternative_spelling_dict))
-        print 'Indexing song ''%s'' with terms: %s\n' % (song['name'], index_terms)
+        writer = IndexWriter(dir, config)
 
         if not LUCENE3:
-            doc.add(Field("index_terms", index_terms, index_terms_field))
-            doc.add(Field("json", json.dumps(song), key_field))
-        else:
-            field1 = Field("index_terms", index_terms, Field.Store.NO, Field.Index.ANALYZED)
-            field2 = Field("json", json.dumps(song), Field.Store.YES, Field.Index.NO)
-            field2.setIndexOptions(FieldInfo.IndexOptions.DOCS_AND_FREQS)
+            index_terms_field = FieldType()
+            index_terms_field.setIndexed(True)
+            index_terms_field.setStored(False)
 
-            doc.add(field1)
-            doc.add(field2)
+            key_field = FieldType()
+            key_field.setIndexed(False)
+            key_field.setStored(True)
+            key_field.setIndexOptions(FieldInfo.IndexOptions.DOCS_AND_FREQS)
 
-        writer.addDocument(doc)
+        music_json_data = music_json_data if isinstance(music_json_data, list) else [music_json_data]
 
-    writer.close()
+        for song in music_json_data:
+            doc = Document()
 
-    return
+            index_terms = ' '.join(getIndexTerms(song, self.alternative_spelling_dict))
+            print 'Indexing song ''%s'' with terms: %s\n' % (song['name'], index_terms)
 
+            if not LUCENE3:
+                doc.add(Field("index_terms", index_terms, index_terms_field))
+                doc.add(Field("json", json.dumps(song), key_field))
+            else:
+                field1 = Field("index_terms", index_terms, Field.Store.NO, Field.Index.ANALYZED)
+                field2 = Field("json", json.dumps(song), Field.Store.YES, Field.Index.NO)
+                field2.setIndexOptions(FieldInfo.IndexOptions.DOCS_AND_FREQS)
 
-def search(index_dir, query, analyzer=StandardAnalyzer(Version.LUCENE_CURRENT), max_results=200):
-    lucene.getVMEnv().attachCurrentThread()
+                doc.add(field1)
+                doc.add(field2)
 
-    dir = SimpleFSDirectory(File(index_dir)) if LUCENE3 else DirectoryReader.open(SimpleFSDirectory(File(index_dir)))
-    searcher = IndexSearcher(dir)
+            writer.addDocument(doc)
 
-    query = QueryParser(Version.LUCENE_CURRENT, "index_terms", analyzer).parse(QueryParser.escape(query.lower()))
+        writer.close()
+        return
 
-    search_results = searcher.search(query, max_results).scoreDocs
+    def search(self, query, max_results=200):
+        if not os.listdir(self.index_dir):
+            return []
 
-    result = []
+        lucene.getVMEnv().attachCurrentThread()
 
-    for search_result in search_results:
-        document = searcher.doc(search_result.doc)
-        result.append(document.get("json"))
+        dir = SimpleFSDirectory(File(self.index_dir)) if LUCENE3 else DirectoryReader.open(SimpleFSDirectory(File(self.index_dir)))
+        searcher = IndexSearcher(dir)
 
-    dir.close()
+        query = QueryParser(Version.LUCENE_CURRENT, "index_terms", self.analyzer).parse(QueryParser.escape(query.lower()))
 
-    # the result to be returned is a list of JSON dictionaries (one per song)
-    return json.loads('[%s]' % ', '.join(result))
+        search_results = searcher.search(query, max_results).scoreDocs
 
+        result = []
 
-def recommendForSongSet(song_set, index_dir):
-    if len(song_set) > 0:
-        song_set_ids = [song['id'] for song in song_set]
-        frequent_terms_in_set = getFrequentTerms(song_set)
-        query_from_frequent_terms = ' '.join(frequent_terms_in_set)
-        print 'querying dataset for "%s"' % query_from_frequent_terms
-        search_results = search(index_dir, query_from_frequent_terms)
-
-        filtered_search_results = []
         for search_result in search_results:
-            if not search_result['id'] in song_set_ids:
-                filtered_search_results.append(search_result)
+            document = searcher.doc(search_result.doc)
+            result.append(document.get("json"))
 
-        if len(filtered_search_results) > 0:
-            return filtered_search_results
+        dir.close()
+
+        # The result to be returned is a list of JSON dictionaries (one per song)
+        return json.loads('[%s]' % ', '.join(result))
 
 
-# Suggest frequently occurring metadata info in a given set of JSON results
+    def recommend(self, song_set):
+        if len(song_set) > 0:
+            song_set_ids = [song['id'] for song in song_set]
+            frequent_terms_in_set = getFrequentTerms(song_set)
+            query_from_frequent_terms = ' '.join(frequent_terms_in_set)
+            print 'querying dataset for "%s"' % query_from_frequent_terms
+            search_results = self.search(self.index_dir, query_from_frequent_terms)
+
+            filtered_search_results = []
+            for search_result in search_results:
+                if not search_result['id'] in song_set_ids:
+                    filtered_search_results.append(search_result)
+
+            if len(filtered_search_results) > 0:
+                return filtered_search_results
+
+
 def getFrequentTerms(music_json_data, num_suggestions=20, exclude_terms=[''], alternative_spelling_dict={}):
+    # Suggest frequently occurring metadata info in a given set of JSON results
+
     all_tags = []
 
     for song in music_json_data:
@@ -127,8 +139,9 @@ def getFrequentTerms(music_json_data, num_suggestions=20, exclude_terms=[''], al
 
     return [tuple_item[0] for tuple_item in top_n]
 
-# Outputting song and artist name, plus several musicinfo fields now
+
 def getIndexTerms(song, alternative_spelling_dict):
+    # Outputting song and artist name, plus several musicinfo fields now
     index_terms = ['']
 
     index_terms.append(getUnicodeString(song["artist"]))
@@ -140,11 +153,10 @@ def getIndexTerms(song, alternative_spelling_dict):
     index_terms.extend(expandSpeedTerms((song["musicinfo"]["speed"])))
     index_terms.extend(getCombinedTags(song, alternative_spelling_dict))
 
-    #print index_terms
-
     index_terms = [term.encode('utf-8') for term in index_terms]
 
     return filter(None, index_terms)
+
 
 def getUnicodeString(input):
     if isinstance(input, unicode):
@@ -152,8 +164,8 @@ def getUnicodeString(input):
     else:
         return input.decode('utf-8')
 
-# Add 'fast' and 'slow'as alternatives for 'high speed' and 'low speed'
 def expandSpeedTerms(speed_qualifier):
+    # Add 'fast' and 'slow'as alternatives for 'high speed' and 'low speed'
     speed_qualifiers = ['%s speed' % speed_qualifier]
 
     if speed_qualifier == 'high':
@@ -172,8 +184,8 @@ def getCombinedTags(song_json_data, alternative_spelling_dict={}):
 
     return combined_tags
 
-# Expands a search term with possible alternative spellings   
 def expandAlternativeSpellings(search_term, alternative_spelling_dict):
+    # Expands a search term with possible alternative spellings   
     expansion_list = [search_term]
 
     if alternative_spelling_dict.has_key(search_term):
@@ -194,4 +206,3 @@ def getAlternativeSpellingDict(path, delimiter=';'):
             alternative_spelling_dict[tag_spellings[0]] = tag_spellings[1:]
 
     return alternative_spelling_dict
-

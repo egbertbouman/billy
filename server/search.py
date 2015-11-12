@@ -40,7 +40,7 @@ class Search(object):
         dir = SimpleFSDirectory(File(self.index_dir))
 
         config = IndexWriterConfig(Version.LUCENE_CURRENT, self.analyzer)
-        config.setOpenMode(IndexWriterConfig.OpenMode.CREATE)
+        config.setOpenMode(IndexWriterConfig.OpenMode.CREATE_OR_APPEND)
 
         writer = IndexWriter(dir, config)
 
@@ -60,7 +60,7 @@ class Search(object):
             doc = Document()
 
             index_terms = ' '.join(getIndexTerms(song, self.alternative_spelling_dict))
-            print 'Indexing song ''%s'' with terms: %s\n' % (song['name'], index_terms)
+            print 'Indexing song ''%s'' with terms: %s\n' % (song['name'].encode('utf-8'), index_terms)
 
             if not LUCENE3:
                 doc.add(Field("index_terms", index_terms, index_terms_field))
@@ -79,7 +79,7 @@ class Search(object):
         return
 
     def search(self, query, max_results=200):
-        if not os.listdir(self.index_dir):
+        if not os.path.exists(self.index_dir) or not os.listdir(self.index_dir):
             return []
 
         lucene.getVMEnv().attachCurrentThread()

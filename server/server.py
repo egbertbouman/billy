@@ -194,7 +194,9 @@ def main(argv):
     config = ConfigParser.ConfigParser()
     config.read("billy.cfg")
 
-    db = Database(config)
+    search = Search(os.path.join(CURRENT_DIR, 'data', 'index'))
+
+    db = Database(config, search.index)
 
     # Import tracks
     if args.tracks:
@@ -229,7 +231,7 @@ def main(argv):
             print 'done'
 
     db.start()
-    api = API(db, Search(os.path.join(CURRENT_DIR, 'data', 'index')))
+    api = API(db, search)
 
     if args.dir:
         html_dir = os.path.abspath(args.dir)

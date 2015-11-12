@@ -21,10 +21,11 @@ class ObjectIdToString(SONManipulator):
 
 class Database(threading.Thread):
 
-    def __init__(self, config):
+    def __init__(self, config, add_track_cb):
         threading.Thread.__init__(self)
 
         self.config = config
+        self.add_track_cb = add_track_cb
 
         mongo_host = self.config.get('database', 'mongo_host')
         mongo_port = int(self.config.get('database', 'mongo_port'))
@@ -101,6 +102,7 @@ class Database(threading.Thread):
 
     def add_track(self, track):
         if not list(self.db.tracks.find(track).limit(1)):
+            self.add_track_cb(track)
             return self.db.tracks.insert(track)
         return False
 

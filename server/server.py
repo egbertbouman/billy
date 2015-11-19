@@ -19,13 +19,12 @@ CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
 
 class API(object):
 
-    def __init__(self, db, search):
-        self.database = db
+    def __init__(self, database, search):
+        self.database = database
         self.search = search
 
     def get_session(self, token):
-        sessions = list(self.db.sessions.find({'_id': token}).limit(1))
-        return sessions[0] if sessions else None
+        return self.database.get_session(token)
 
     def error(self, message, status_code):
         cherrypy.response.status = status_code
@@ -34,13 +33,7 @@ class API(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def session(self, **kwargs):
-        # Generate a token while avoiding collisions
-        token = binascii.b2a_hex(os.urandom(20))
-        while self.get_session(token) is not None:
-            token = binascii.b2a_hex(os.urandom(20))
-
-        self.db.sessions.insert({'_id': token,
-                                 'playlists': {}})
+        token = self.database.create_session()
         return {'token': token}
 
     @cherrypy.expose
@@ -68,7 +61,7 @@ class API(object):
                 length = int(cherrypy.request.headers['Content-Length'])
                 body = cherrypy.request.body.read(length)
                 json_body = json.loads(body)
-                self.db.sessions.update({'_id': token}, {'$set': {'playlists': json_body}})
+                self.database.update_session(token, json_body)
                 return {}
         else:
             if cherrypy.request.method == 'GET':
@@ -87,7 +80,7 @@ class API(object):
             return track
 
         results = self.search.search(query)
-        results.sort(key=lambda x: x['stats']['playlisted'], reverse=True)
+        results.sort(key=lambda x: x.get('stats', {}).get('playlisted', 0), reverse=True)
         return {'results': results}
 
     @cherrypy.expose
@@ -127,7 +120,7 @@ class API(object):
                 cherrypy.serving.response.headers['Access-Control-Expose-Headers'] = 'Www-Authenticate'
                 raise e
 
-            clicklog = list(self.db.clicklog.find({}, {'_id': False}).sort('_id', -1).limit(int(limit)))
+            clicklog = list(self.database.get_clicklog(int(limit)))
             return clicklog
 
         elif cherrypy.request.method == 'POST':
@@ -144,7 +137,7 @@ class API(object):
             json_body['ip'] = cherrypy.request.remote.ip
             json_body['time'] = int(time.time())
 
-            self.db.clicklog.insert(json_body)
+            self.database.add_clicklog(json_body)
 
     @cherrypy.expose
     @cherrypy.tools.json_out()

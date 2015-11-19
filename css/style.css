@@ -161,3 +161,10 @@ span.rollover:hover {
 #waveform {
   cursor: pointer;
 }
+
+#yt_player {
+  position:fixed;
+  bottom:50px;
+  z-index:9999;
+  display: none;
+}

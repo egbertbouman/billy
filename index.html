@@ -51,8 +51,10 @@
     </nav>
 
 
+    <div id="yt_player"></div>
+
     <div id="player-container">
-    
+
       <div class="container container-fixed">
 
         <div id="player-core" class="jp-jplayer"></div>
@@ -222,7 +224,7 @@
             }
       });
 
-      $(billy.playlist.cssSelector.jPlayer).bind($.jPlayer.event.ready, function() {
+      billy.player.listen('ready', function() {
           $.ajaxSetup({ cache: false });
           billy.load_from_server();
       });

@@ -77,6 +77,7 @@ class RSSSource(object):
                         links.append('soundcloud:' + soundcloud_id)
 
             for link in links:
+                print entry['title']
                 item = {'title': entry['title'],
                         'link': link,
                         'ts': epoch_time}
@@ -99,6 +100,12 @@ class YoutubeSource(object):
         self.id = id
         self.api_key = api_key
 
+    def has_error(self, response_dict):
+        if 'error' in response_dict:
+            print 'Error from Youtube', self.type, ':', response_dict['error']['message']
+            return True
+        return False
+
     def fetch(self, since=0):
         if self.type == 'channel':
             return self._fetch_channel(since)
@@ -116,6 +123,9 @@ class YoutubeSource(object):
             url = self.YOUTUBE_CHANNEL_URL.format(api_key=self.api_key, id=self.id, before=published_before, after=published_after, token=page_token)
             response = requests.get(url)
             response_dict = response.json()
+
+            if self.has_error(response_dict):
+                return results
 
             items = response_dict['items']
             for item in items:
@@ -145,6 +155,9 @@ class YoutubeSource(object):
             url = self.YOUTUBE_PLAYLIST_URL.format(api_key=self.api_key, id=self.id, token=page_token)
             response = requests.get(url)
             response_dict = response.json()
+
+            if self.has_error(response_dict):
+                return results
 
             items = response_dict['items']
             for item in items:

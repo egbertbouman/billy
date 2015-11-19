@@ -3,6 +3,13 @@ String.prototype.format = function () {
   return this.replace(/\{(\d+)\}/g, function (m, n) { return args[n]; });
 };
 
+Number.prototype.pad = function(size) {
+    var s = String(this);
+    while (s.length < (size || 2))
+        s = "0" + s;
+    return s;
+};
+
 billy = {};
 
 (function(billy, $) {
@@ -11,14 +18,7 @@ billy = {};
     billy.results = {};
     billy.playlists = {};
     billy.playlist_name = undefined;
-    billy.playlist = new jPlayerPlaylist({
-                         jPlayer: '#player-core',
-                         cssSelectorAncestor: '#player-ui'
-                     }, [], {
-                         supplied: 'mp3',
-                         wmode: 'window'
-                     });
-    billy.api_base = 'http://musesync.ewi.tudelft.nl/api';
+    billy.api_base = 'http://home.tribler-g.org:8000/api';
     billy.api_session = billy.api_base + '/session';
     billy.api_playlists = billy.api_base + '/playlists?token={0}&search={1}';
     billy.api_tracks = billy.api_base + '/tracks?query={0}&id={1}';
@@ -27,19 +27,298 @@ billy = {};
     billy.api_waveform = billy.api_base + '/waveform?id={0}';
     billy.api_download = billy.api_base + '/download?id={0}';
 
-    $(billy.playlist.cssSelector.jPlayer).bind($.jPlayer.event.loadstart, function(event) {
-        billy.set_waveform(event.jPlayer.status.media.id);
-    });
-    $(billy.playlist.cssSelector.jPlayer).bind($.jPlayer.event.timeupdate + " " + $.jPlayer.event.ended, function() {
-        billy.update_waveform();
-    });
-    $('#waveform').on('mousemove mouseout', function (event) {
-        var position = (event.type == 'mousemove') ? event.clientX - $(this).offset().left : 0;
-        if (billy.waveform_mouse_pos !== position) {
-            billy.waveform_mouse_pos = position;
-            billy.update_waveform();
+
+   /*--------------------------------------------------------------------*
+    * Audio player
+    *--------------------------------------------------------------------*/
+
+    billy.AudioPlayer = function(css_selectors) {
+        this.players_total = 2;
+        this.players_ready = 0;
+        this.setup_jplayer(css_selectors['jplayer_core'], css_selectors['jplayer_ui']);
+        this.setup_youtube(css_selectors['youtube']);
+    }
+
+    billy.AudioPlayer.prototype.setup_jplayer = function(css_selector_core, css_selector_ui) {
+        var self = this;
+
+        self.j_player = $(css_selector_core).jPlayer({
+            supplied: 'mp3',
+            wmode: 'window',
+            cssSelectorAncestor: css_selector_ui,
+            ready: function () {
+                self.players_ready += 1;
+                if (self.players_ready === self.players_total)
+                    self.fire_event('ready');
+            },
+            ended: function () {
+                self.fire_event('ended', 'jplayer');
+            },
+            play: function () {
+                self.fire_event('playing', 'jplayer');
+            },
+            ended: function () {
+                self.fire_event('ended', 'jplayer');
+            },
+            pause: function () {
+                self.fire_event('pause', 'jplayer');
+            },
+            timeupdate: function () {
+                self.fire_event('timeupdate', 'jplayer');
+            },
+            loadstart: function () {
+                self.fire_event('loadstart', 'jplayer');
+            },
+            error: function () {
+                self.fire_event('error', 'jplayer');
+            }
+        });
+    }
+
+    billy.AudioPlayer.prototype.setup_youtube = function(css_selector) {
+        var self = this;
+
+        // Load Youtube API
+        var tag = document.createElement('script');
+        tag.src = "http://www.youtube.com/iframe_api";
+        var firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+        
+        // Create player
+        window.onYouTubeIframeAPIReady = function() {
+            self.yt_player = new YT.Player(css_selector, {
+                height      : '200',
+                width       : '320',
+                playerVars: {
+                    'autohide':         1,
+                    'autoplay':         0,
+                    'controls':         0,
+                    'fs':               1,
+                    'disablekb':        0,
+                    'modestbranding':   1,
+                    'iv_load_policy':   3,
+                    'rel':              0,
+                    'showinfo':         0,
+                    'theme':            'dark',
+                    'color':            'red'
+                    },
+                events: {
+                    'onReady': function (data) {
+                        self.players_ready += 1;
+                        if (self.players_ready === self.players_total)
+                            self.fire_event('ready', data);
+                    },
+                    'onStateChange': function (state) {
+                        switch(state.data) {
+                            case 0:
+                                self.fire_event('ended', 'youtube');
+                                break;
+                            case 1:
+                                self.fire_event('playing', 'youtube');
+                                if (self.yt_player.timer !== undefined)
+                                    clearInterval(self.yt_player.timer);
+                                self.yt_player.timer = setInterval(function () {
+                                    self.fire_event('timeupdate', 'youtube');
+                                }, 100);
+                                break;
+                            case 2:
+                                self.fire_event('paused', 'youtube');
+                                break;
+                            case 5:
+                                self.fire_event('loadstart', 'youtube');
+                                break;
+                            default:
+                                // do nothing
+                        }
+                    },
+                    'onError': function (error) {
+                        self.fire_event('error', 'youtube', error);
+                    }
+                }
+            });
         }
-    });
+    }
+
+    billy.AudioPlayer.prototype.listen = function(type, method, scope) {
+        var listeners, handlers;
+        if (!(listeners = this.listeners)) {
+            listeners = this.listeners = {};
+        }
+        if (!(handlers = listeners[type])) {
+            handlers = listeners[type] = [];
+        }
+        scope = (scope ? scope : window);
+        handlers.push({
+            method: method,
+            scope: scope
+        });
+    },
+    
+    billy.AudioPlayer.prototype.fire_event = function(type, data) {
+        var listeners, handlers, i, n, handler, scope;
+        if (!(listeners = this.listeners)) {
+            return;
+        }
+        if (!(handlers = listeners[type])) {
+            return;
+        }
+        for (i = 0, n = handlers.length; i < n; i++) {
+            handler = handlers[i];
+            if (handler.method.call(handler.scope, type, data) === false) {
+                return false;
+            }
+        }
+    }
+
+    billy.AudioPlayer.prototype.load_and_play = function(track) {
+        var link = track['link'];
+        if (link.startsWith('youtube:')) {
+            this.yt_player.loadVideoById(link.substring(8));
+        }
+        else {
+            this.j_player.jPlayer("setMedia", track).jPlayer("play");
+        }
+        this.track = track;
+    }
+
+    billy.AudioPlayer.prototype.load = function(track) {
+        var link = track['link'];
+        if (link.startsWith('youtube:')) {
+            this.yt_player.cueVideoById(link.substring(8));
+        }
+        else {
+            this.j_player.jPlayer("setMedia", track);
+        }
+        this.track = track;
+    }
+
+    billy.AudioPlayer.prototype.play = function() {
+        if (this.track['link'].startsWith('youtube:')) {
+            this.yt_player.playVideo();
+        }
+        else {
+            this.j_player.jPlayer("play");
+        }
+    }
+
+    billy.AudioPlayer.prototype.pause = function() {
+        if (this.track['link'].startsWith('youtube:')) {
+            this.yt_player.pauseVideo();
+        }
+        else {
+            this.j_player.jPlayer("pause");
+        }
+    }
+
+    billy.AudioPlayer.prototype.stop = function() {
+        var link = this.track['link'];
+        if (link.startsWith('youtube:')) {
+            this.yt_player.stopVideo();
+            this.yt_player.seekTo(0);
+        }
+        else {
+            this.j_player.jPlayer("stop");
+        }
+    }
+
+    billy.AudioPlayer.prototype.clear = function() {
+        var link = this.track['link'];
+        if (link.startsWith('youtube:')) {
+            this.yt_player.clearVideo();
+        }
+        else {
+            this.j_player.jPlayer("clearMedia");
+        }
+        this.track = undefined;
+    }
+
+    billy.AudioPlayer.prototype.set_volume = function(value) {
+        this.yt_player.setVolume(value);
+        this.j_player.jPlayer("volume", value / 100);
+    }
+
+
+   /*--------------------------------------------------------------------*
+    * Event handlers
+    *--------------------------------------------------------------------*/
+
+    billy.add_handlers = function(){
+        var self = this;
+
+        $('#player-ui .jp-pause').hide();
+        this.player.listen('ended', function(event, player_type) {
+            if (player_type == 'youtube') {
+                $('#player-ui .jp-pause').show();
+                $('#player-ui .jp-play').hide();
+            }
+        });
+        this.player.listen('paused', function(event, player_type) {
+            if (player_type == 'youtube') {
+                $('#player-ui .jp-pause').hide();
+                $('#player-ui .jp-play').show();
+            }
+        });
+        this.player.listen('playing', function(event, player_type) {
+            if (player_type == 'youtube') {
+                $('#player-ui .jp-pause').show();
+                $('#player-ui .jp-play').hide();
+            }
+        });
+        this.player.listen('timeupdate', function(event, player_type) {
+            if (player_type == 'youtube') {
+                if (self.player.yt_player.getCurrentTime() >= 60) {
+                    $('#player-ui .jp-current-time').text(Math.floor(self.player.yt_player.getCurrentTime() / 60).pad(2) + ':' + Math.round(self.player.yt_player.getCurrentTime() % 60).pad(2));
+                }
+                else {
+                    $('#player-ui .jp-current-time').text('00:' + Math.round(self.player.yt_player.getCurrentTime()).pad(2));
+                    $('#player-ui .jp-progress .jp-play-bar').width(Math.round((self.player.yt_player.getCurrentTime() / self.player.yt_player.getDuration()) * 100) + '%');
+                }
+            }
+        });
+        this.player.listen('loadstart', function(event, player_type) {
+            self.set_waveform(self.player.track.id);
+        });
+        this.player.listen('timeupdate', function(event, player_type) {
+            self.update_waveform();
+        });
+        this.player.listen('ended', function(event, player_type) {
+            self.update_waveform();
+        });
+        $('#player-ui .jp-play').on('click', function() {
+            $(this).hide();
+            $('#player-ui .jp-pause').show();
+            self.player.play();
+        });
+        $('#player-ui .jp-pause').on('click', function() {
+            $(this).hide();
+            $('#player-ui .jp-play').show();
+            self.player.pause();
+        });
+        $('#player-ui .jp-stop').on('click', function() {
+            $('#player-ui .jp-pause').hide();
+            $('#player-ui .jp-play').show();
+            self.player.stop();
+        });
+        $('#player-ui .jp-volume-bar').on('click', function(e) {
+            var posX = $(this).offset().left;
+            var posWidth = $(this).width();
+            posX = (e.pageX - posX) / posWidth;
+            $('#player-ui .jp-volume-bar .jp-volume-bar-value').width((posX * 100) + '%').show();
+            self.player.set_volume(posX * 100)
+        });
+        $('#waveform').on('mousemove mouseout', function (event) {
+            var position = (event.type == 'mousemove') ? event.clientX - $(this).offset().left : 0;
+            if (self.waveform_mouse_pos !== position) {
+                self.waveform_mouse_pos = position;
+                self.update_waveform();
+            }
+        });
+    }
+
+
+   /*--------------------------------------------------------------------*
+    * Playlist operations
+    *--------------------------------------------------------------------*/
 
     billy.add_playlists = function(playlists) {
         // Add playlists + add links to the playlist tabs
@@ -67,48 +346,6 @@ billy = {};
             this.playlists[this.playlist_name]['tracks'] = this.playlist.playlist;
         }
         return this.playlists;
-    }
-
-    billy.load_from_server = function() {
-        var self = this;
-
-        this.token = $.cookie('token');
-        if (this.token !== undefined) {
-            // Load playlists from server and show them to the user
-            $.getJSON(self.api_playlists.format(this.token, ''), function(data) {
-                if ($.isEmptyObject(data))
-                     self.create_playlist();
-                else
-                     self.add_playlists(data);
-            })
-            .fail(function() {
-                // No remote playlists available. Create a new playlist.
-                self.create_playlist();
-            });
-        }
-        else {
-            $.getJSON(self.api_session, function(data) {
-                self.token = data['token'];
-                $.cookie('token', self.token, {expires: 3650});
-                self.create_playlist();
-            })
-        }
-    }
-
-    billy.save_to_server = function() {
-        var self = this;
-
-        // Store playlists in remote database
-        $.ajax({
-            type: 'POST',
-            url: this.api_playlists.format(this.token, ''),
-            contentType: "application/json",
-            processData: false,
-            data: JSON.stringify(this.get_playlists()),
-            success: function() { self.recommend() },
-            error: function() { bootbox.alert('Failed to contact Billy server') },
-            dataType: "text"
-        });
     }
 
     billy.import_json = function(json_string) {
@@ -184,23 +421,10 @@ billy = {};
         this.recommend();
     }
 
-    billy.change_results = function(name) {
-        // Highlight tab
-        $('#' + name + '-tab').tab('show');
-        // Show tab pane
-        var tab = $('#' + name);
-        $('.tab-pane').each(function (item) {
-            $(this).hide();
-        });
-        $(tab).show();
-        // Set description
-        if (name === 'search') {
-            var msg = ($('#search > .list-group-item').length > 0) ? 'The songs below match your search terms best:' : '';
-            $('#results > .column-description').html(msg);
-        }
-        else if (name === 'recommend')
-            $('#results > .column-description').html('Consider adding some of these songs to your playlist too:');
-    }
+
+   /*--------------------------------------------------------------------*
+    * Communication with Billy server
+    *--------------------------------------------------------------------*/
 
     billy.search = function() {
         var query = $("#search-query").val();
@@ -239,35 +463,35 @@ billy = {};
                 if (!('vartags' in val['musicinfo']['tags']))
                     val['musicinfo']['tags']['vartags'] = [];
 
-                self.results[val['id']] = {
-                    title: val['name'],
-                    artist: val['artist_name'],
-                    mp3: val['audio'],
-                    poster: val['image'],
+                self.results[val['_id']] = {
+                    title: val['title'],
+                    link: val['link'],
+                    image: val['image'],
                     musicinfo: val['musicinfo'],
-                    id: val['id']
+                    id: val['_id']
                 };
 
-                var item_html = '<li class="list-group-item shorten" data-track-id="' + val['id'] + '">';
+                var item_html = '<li class="list-group-item shorten" data-track-id="' + val['_id'] + '">';
 
                 var tags_html = self.create_tags_popover(val['musicinfo']);
 
                 item_html += '<div class="pull-right m-l btn-group">';
                 item_html += '<a href="#" data-toggle="popover" data-placement="bottom" tabindex="0" data-trigger="focus" title="Tags" data-content="' + tags_html + '" class="m-r-sm"><span class="glyphicon glyphicon-info-sign"></span></a>';
-                item_html += '<a href="#" onclick="window.location = \'' + self.api_download.format(val['id']) + '\'" class="m-r-sm"><span class="glyphicon glyphicon-record"></span></a>';
+                item_html += '<a href="#" onclick="window.location = \'' + self.api_download.format(val['_id']) + '\'" class="m-r-sm"><span class="glyphicon glyphicon-record"></span></a>';
                 item_html += '<a href="#" data-action="play" class="m-r-sm"><span class="glyphicon glyphicon-play-circle"></span></a>';
                 item_html += '<a href="#" data-action="add" class="m-r-sm"><span class="glyphicon glyphicon-remove-circle rotate-45"></span></a>';
 
                 item_html += '</div>';
 
-                item_html += '<a href="#" data-action="play" class="img-thumbnail cover-art"><span class="rollover"></span><img alt="" src=' + val['image'] + '></a>';
-                item_html += val['name'] + ' - ' + val['artist_name'];
+                var image = (val['image'] === undefined) ? 'img/blank.png' : val['image'];
+                item_html += '<a href="#" data-action="play" class="img-thumbnail cover-art"><span class="rollover"></span><img alt="" src=' + val['image'] + ' onerror="this.src = \'img/blank.png\';"></a>';
+                item_html += val['title'];
 
                 item_html += '</li>';
 
                 var item = $(item_html).appendTo(target);
 
-                if (current == val['id'])
+                if (current == val['_id'])
                     item.addClass('jp-playlist-current');
             });
             // Bind event handlers
@@ -287,6 +511,91 @@ billy = {};
 
             $("[data-toggle=popover]").popover({html : true, container: 'body'});
         });
+    }
+
+    billy.check_api_response = function(data) {
+        var success = !('error' in data);
+        if (!success) {
+            bootbox.alert('Failed to contact Billy server!')
+        }
+        return success;
+    }
+
+    billy.load_from_server = function() {
+        var self = this;
+
+        this.token = $.cookie('token');
+        if (this.token !== undefined) {
+            // Load playlists from server and show them to the user
+            $.getJSON(self.api_playlists.format(this.token, ''), function(data) {
+                if ($.isEmptyObject(data))
+                     self.create_playlist();
+                else
+                     self.add_playlists(data);
+            })
+            .fail(function() {
+                // No remote playlists available. Create a new playlist.
+                self.create_playlist();
+            });
+        }
+        else {
+            $.getJSON(self.api_session, function(data) {
+                self.token = data['token'];
+                $.cookie('token', self.token, {expires: 3650});
+                self.create_playlist();
+            })
+        }
+    }
+
+    billy.save_to_server = function() {
+        var self = this;
+
+        // Store playlists in remote database
+        $.ajax({
+            type: 'POST',
+            url: this.api_playlists.format(this.token, ''),
+            contentType: "application/json",
+            processData: false,
+            data: JSON.stringify(this.get_playlists()),
+            success: function() { self.recommend() },
+            error: function() { bootbox.alert('Failed to contact Billy server') },
+            dataType: "text"
+        });
+    }
+
+    billy.clicklog = function(data) {
+        // Post clicklog data to server
+        $.ajax({
+            type: 'POST',
+            url: this.api_clicklog.format(this.token),
+            contentType: "application/json",
+            processData: false,
+            data: JSON.stringify(data),
+            dataType: "text"
+        });
+    }
+
+
+   /*--------------------------------------------------------------------*
+    * Miscellaneous
+    *--------------------------------------------------------------------*/
+
+    billy.change_results = function(name) {
+        // Highlight tab
+        $('#' + name + '-tab').tab('show');
+        // Show tab pane
+        var tab = $('#' + name);
+        $('.tab-pane').each(function (item) {
+            $(this).hide();
+        });
+        $(tab).show();
+        // Set description
+        if (name === 'search') {
+            var msg = ($('#search > .list-group-item').length > 0) ? 'The songs below match your search terms best:' : '';
+            $('#results > .column-description').html(msg);
+        }
+        else if (name === 'recommend')
+            $('#results > .column-description').html('Consider adding some of these songs to your playlist too:');
     }
 
     billy.add_track = function(track_id) {
@@ -311,7 +620,9 @@ billy = {};
 
     billy.play_track = function(track_id) {
         if (track_id in this.results) {
-            $(this.playlist.cssSelector.jPlayer).jPlayer("setMedia", {id: track_id, mp3: this.results[track_id]['mp3']}).jPlayer("play");
+            var track = this.results[track_id];
+            this.player.load_and_play(track);
+
             // Set highlighting
             $('#results .list-group').children(".jp-playlist-current").removeClass("jp-playlist-current");
             $('#results .list-group-item[data-track-id="' + track_id + '"]').addClass('jp-playlist-current');
@@ -319,26 +630,6 @@ billy = {};
             this.playlist.current = undefined;
             this.playlist._refresh(true);
         }
-    }
-
-    billy.clicklog = function(data) {
-        // Post clicklog data to server
-        $.ajax({
-            type: 'POST',
-            url: this.api_clicklog.format(this.token),
-            contentType: "application/json",
-            processData: false,
-            data: JSON.stringify(data),
-            dataType: "text"
-        });
-    }
-
-    billy.check_api_response = function(data) {
-        var success = !('error' in data);
-        if (!success) {
-            bootbox.alert('Failed to contact Billy server!')
-        }
-        return success;
     }
 
     billy.create_tags_popover = function(musicinfo) {
@@ -443,5 +734,19 @@ billy = {};
             context.putImageData(this.waveform_d, 0, 0, mouse_position, 0, play_position - mouse_position, this.waveform_b.height);
 
     }
+
+
+    billy.player = new billy.AudioPlayer({jplayer_core: '#player-core',
+                                          jplayer_ui: '#player-ui',
+                                          youtube: 'yt_player'});
+
+    billy.playlist = new jPlayerPlaylist(billy.player, {
+                         jPlayer: '#player-core',
+                         cssSelectorAncestor: '#player-ui'
+                     }, [], {
+                         supplied: 'mp3',
+                         wmode: 'window'
+                     });
+    billy.add_handlers();
 
 })(billy, jQuery);

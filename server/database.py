@@ -1,9 +1,11 @@
+import os
 import sys
 import json
 import time
 import random
 import binascii
 import threading
+import requests
 
 from sources import *
 from pymongo import MongoClient
@@ -102,8 +104,28 @@ class Database(threading.Thread):
 
     def add_track(self, track):
         if not list(self.db.tracks.find(track).limit(1)):
-            self.add_track_cb(track)
-            return self.db.tracks.insert(track)
+            # Try to split the title into artist and name components
+            if track['title'].count(' - ') == 1:
+                track['track_artist'], track['track_name'] = track['title'].split(' - ', 1)
+
+            # Get tags from last.fm
+            if 'track_artist' in track:
+                params = {'method': 'track.gettoptags',
+                          'artist': track['track_artist'],
+                          'track': track['track_name'],
+                          'api_key': self.config.get('sources', 'lastfm_api_key'),
+                          'format': 'json',
+                          'limit': 20}
+                response = requests.get('https://ws.audioscrobbler.com/2.0', params=params).json()
+                top_tags = [item['name'] for item in response.get('toptags', {}).get('tag', []) if item['count'] > 20]
+            else:
+                top_tags = []
+            track['musicinfo'] = {'tags': {'vartags': top_tags}}
+
+            track_id = self.db.tracks.insert(track)
+            if track_id:
+                track['_id'] = track_id
+                self.add_track_cb(track)
         return False
 
     def get_track(self, track_id):

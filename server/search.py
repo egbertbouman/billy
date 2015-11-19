@@ -37,6 +37,8 @@ class Search(object):
         if not os.path.exists(self.index_dir):
             os.makedirs(self.index_dir)
 
+        lucene.getVMEnv().attachCurrentThread()
+
         dir = SimpleFSDirectory(File(self.index_dir))
 
         config = IndexWriterConfig(Version.LUCENE_CURRENT, self.analyzer)
@@ -60,7 +62,7 @@ class Search(object):
             doc = Document()
 
             index_terms = ' '.join(getIndexTerms(song, self.alternative_spelling_dict))
-            print 'Indexing song ''%s'' with terms: %s\n' % (song['name'].encode('utf-8'), index_terms)
+            print 'Indexing song ''%s'' with terms: %s\n' % (song['title'].encode('utf-8'), index_terms)
 
             if not LUCENE3:
                 doc.add(Field("index_terms", index_terms, index_terms_field))
@@ -144,13 +146,12 @@ def getIndexTerms(song, alternative_spelling_dict):
     # Outputting song and artist name, plus several musicinfo fields now
     index_terms = ['']
 
-    index_terms.append(getUnicodeString(song["artist"]))
     index_terms.append(getUnicodeString(song["title"]))
 
-    index_terms.append(getUnicodeString(song["musicinfo"]["acousticelectric"]))
-    index_terms.append(getUnicodeString(song["musicinfo"]["vocalinstrumental"]))
+    index_terms.append(getUnicodeString(song["musicinfo"].get("acousticelectric", "")))
+    index_terms.append(getUnicodeString(song["musicinfo"].get("vocalinstrumental", "")))
 
-    index_terms.extend(expandSpeedTerms((song["musicinfo"]["speed"])))
+    index_terms.extend(expandSpeedTerms((song["musicinfo"].get("speed", ""))))
     index_terms.extend(getCombinedTags(song, alternative_spelling_dict))
 
     index_terms = [term.encode('utf-8') for term in index_terms]

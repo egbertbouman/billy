@@ -106,12 +106,12 @@ class Database(threading.Thread):
         if not list(self.db.tracks.find(track).limit(1)):
             # Try to split the title into artist and name components
             if track['title'].count(' - ') == 1:
-                track['track_artist'], track['track_name'] = track['title'].split(' - ', 1)
+                track['artist_name'], track['track_name'] = track['title'].split(' - ', 1)
 
             # Get tags from last.fm
-            if 'track_artist' in track:
+            if 'artist_name' in track:
                 params = {'method': 'track.gettoptags',
-                          'artist': track['track_artist'],
+                          'artist': track['artist_name'],
                           'track': track['track_name'],
                           'api_key': self.config.get('sources', 'lastfm_api_key'),
                           'format': 'json',

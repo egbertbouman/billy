@@ -107,15 +107,15 @@ class Search(object):
 
     def recommend(self, song_set):
         if len(song_set) > 0:
-            song_set_ids = [song['id'] for song in song_set]
+            song_set_ids = [song['_id'] for song in song_set]
             frequent_terms_in_set = getFrequentTerms(song_set)
             query_from_frequent_terms = ' '.join(frequent_terms_in_set)
             print 'querying dataset for "%s"' % query_from_frequent_terms
-            search_results = self.search(self.index_dir, query_from_frequent_terms)
+            search_results = self.search(query_from_frequent_terms)
 
             filtered_search_results = []
             for search_result in search_results:
-                if not search_result['id'] in song_set_ids:
+                if not search_result['_id'] in song_set_ids:
                     filtered_search_results.append(search_result)
 
             if len(filtered_search_results) > 0:

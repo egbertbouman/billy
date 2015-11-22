@@ -103,7 +103,7 @@ class Database(threading.Thread):
         self.db.sessions.update({'_id': token}, {'$set': {'playlists': playlists}})
 
     def add_track(self, track):
-        if not list(self.db.tracks.find(track).limit(1)):
+        if not list(self.db.tracks.find({'link': track['link']}).limit(1)):
             # Try to split the title into artist and name components
             if track['title'].count(' - ') == 1:
                 track['artist_name'], track['track_name'] = track['title'].split(' - ', 1)
@@ -126,6 +126,7 @@ class Database(threading.Thread):
             if track_id:
                 track['_id'] = track_id
                 self.add_track_cb(track)
+                return track_id
         return False
 
     def get_track(self, track_id):

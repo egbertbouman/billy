@@ -10,6 +10,7 @@ Number.prototype.pad = function(size) {
     return s;
 };
 
+
 billy = {};
 
 (function(billy, $) {
@@ -28,371 +29,360 @@ billy = {};
     billy.api_download = billy.api_base + '/download?id={0}';
 
 
-   /*--------------------------------------------------------------------*
-    * Audio player
-    *--------------------------------------------------------------------*/
 
-    billy.AudioPlayer = function(css_selectors) {
+    billy.Observable = function(){};
+    billy.Observable.prototype = {
+
+        listen: function(type, method) {
+            var listeners, handlers;
+            if (!(listeners = this.listeners)) {
+                listeners = this.listeners = {};
+            }
+            if (!(handlers = listeners[type])) {
+                handlers = listeners[type] = [];
+            }
+            handlers.push(method);
+        },
+
+        fire_event: function(type) {
+            var listeners, handlers, i, n, handler;
+            if (!(listeners = this.listeners)) {
+                return;
+            }
+            if (!(handlers = listeners[type])) {
+                return;
+            }
+            for (i = 0, n = handlers.length; i < n; i++) {
+                handler = handlers[i];
+                var args = [].slice.call(arguments);
+                if (handler.apply(this, args) === false) {
+                    return false;
+                }
+            }
+        }
+    }
+
+
+
+    billy.Player = function(css_selectors) {
         this.players_total = 2;
         this.players_ready = 0;
         this.setup_jplayer(css_selectors['jplayer_core'], css_selectors['jplayer_ui']);
         this.setup_youtube(css_selectors['youtube']);
     }
 
-    billy.AudioPlayer.prototype.setup_jplayer = function(css_selector_core, css_selector_ui) {
-        var self = this;
+    billy.Player.prototype = new billy.Observable();
+    billy.Player.prototype = $.extend(billy.Player.prototype, {
 
-        self.j_player = $(css_selector_core).jPlayer({
-            supplied: 'mp3',
-            wmode: 'window',
-            cssSelectorAncestor: css_selector_ui,
-            ready: function () {
-                self.players_ready += 1;
-                if (self.players_ready === self.players_total)
-                    self.fire_event('ready');
-            },
-            ended: function () {
-                self.fire_event('ended', 'jplayer');
-            },
-            play: function () {
-                self.fire_event('playing', 'jplayer');
-            },
-            ended: function () {
-                self.fire_event('ended', 'jplayer');
-            },
-            pause: function () {
-                self.fire_event('pause', 'jplayer');
-            },
-            timeupdate: function () {
-                self.fire_event('timeupdate', 'jplayer');
-            },
-            loadstart: function () {
-                self.fire_event('loadstart', 'jplayer');
-            },
-            error: function () {
-                self.fire_event('error', 'jplayer');
-            }
-        });
-    }
+        setup_jplayer: function(css_selector_core, css_selector_ui) {
+            var self = this;
 
-    billy.AudioPlayer.prototype.setup_youtube = function(css_selector) {
-        var self = this;
-
-        // Load Youtube API
-        var tag = document.createElement('script');
-        tag.src = "http://www.youtube.com/iframe_api";
-        var firstScriptTag = document.getElementsByTagName('script')[0];
-        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-        
-        // Create player
-        window.onYouTubeIframeAPIReady = function() {
-            self.yt_player = new YT.Player(css_selector, {
-                height      : '200',
-                width       : '320',
-                playerVars: {
-                    'autohide':         1,
-                    'autoplay':         0,
-                    'controls':         0,
-                    'fs':               1,
-                    'disablekb':        0,
-                    'modestbranding':   1,
-                    'iv_load_policy':   3,
-                    'rel':              0,
-                    'showinfo':         0,
-                    'theme':            'dark',
-                    'color':            'red'
-                    },
-                events: {
-                    'onReady': function (data) {
-                        self.players_ready += 1;
-                        if (self.players_ready === self.players_total)
-                            self.fire_event('ready', data);
-                    },
-                    'onStateChange': function (state) {
-                        switch(state.data) {
-                            case 0:
-                                self.fire_event('ended', 'youtube');
-                                break;
-                            case 1:
-                                self.fire_event('playing', 'youtube');
-                                if (self.yt_player.timer !== undefined)
-                                    clearInterval(self.yt_player.timer);
-                                self.yt_player.timer = setInterval(function () {
-                                    self.fire_event('timeupdate', 'youtube');
-                                }, 100);
-                                break;
-                            case 2:
-                                self.fire_event('paused', 'youtube');
-                                break;
-                            case 5:
-                                self.fire_event('loadstart', 'youtube');
-                                break;
-                            default:
-                                // do nothing
-                        }
-                    },
-                    'onError': function (error) {
-                        self.fire_event('error', 'youtube', error);
-                    }
+            self.j_player = $(css_selector_core).jPlayer({
+                supplied: 'mp3',
+                wmode: 'window',
+                cssSelectorAncestor: css_selector_ui,
+                ready: function () {
+                    self.players_ready += 1;
+                    if (self.players_ready === self.players_total)
+                        self.fire_event('ready');
+                },
+                ended: function () {
+                    self.fire_event('ended', 'jplayer');
+                },
+                play: function () {
+                    self.fire_event('playing', 'jplayer');
+                },
+                ended: function () {
+                    self.fire_event('ended', 'jplayer');
+                },
+                pause: function () {
+                    self.fire_event('pause', 'jplayer');
+                },
+                timeupdate: function () {
+                    self.fire_event('timeupdate', 'jplayer');
+                },
+                loadstart: function () {
+                    self.fire_event('loadstart', 'jplayer');
+                },
+                error: function () {
+                    self.fire_event('error', 'jplayer');
                 }
             });
-        }
-    }
+        },
 
-    billy.AudioPlayer.prototype.listen = function(type, method) {
-        var listeners, handlers;
-        if (!(listeners = this.listeners)) {
-            listeners = this.listeners = {};
-        }
-        if (!(handlers = listeners[type])) {
-            handlers = listeners[type] = [];
-        }
-        handlers.push(method);
-    },
-    
-    billy.AudioPlayer.prototype.fire_event = function(type) {
-        var listeners, handlers, i, n, handler;
-        if (!(listeners = this.listeners)) {
-            return;
-        }
-        if (!(handlers = listeners[type])) {
-            return;
-        }
-        for (i = 0, n = handlers.length; i < n; i++) {
-            handler = handlers[i];
-            var args = [].slice.call(arguments);
-            if (handler.apply(this, args) === false) {
-                return false;
+        setup_youtube: function(css_selector) {
+            var self = this;
+
+            // Load Youtube API
+            var tag = document.createElement('script');
+            tag.src = "http://www.youtube.com/iframe_api";
+            var firstScriptTag = document.getElementsByTagName('script')[0];
+            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+            
+            // Create player
+            window.onYouTubeIframeAPIReady = function() {
+                self.yt_player = new YT.Player(css_selector, {
+                    height      : '200',
+                    width       : '320',
+                    playerVars: {
+                        'autohide':         1,
+                        'autoplay':         0,
+                        'controls':         0,
+                        'fs':               1,
+                        'disablekb':        0,
+                        'modestbranding':   1,
+                        'iv_load_policy':   3,
+                        'rel':              0,
+                        'showinfo':         0,
+                        'theme':            'dark',
+                        'color':            'red'
+                        },
+                    events: {
+                        'onReady': function (data) {
+                            self.players_ready += 1;
+                            if (self.players_ready === self.players_total)
+                                self.fire_event('ready', data);
+                        },
+                        'onStateChange': function (state) {
+                            switch(state.data) {
+                                case 0:
+                                    self.fire_event('ended', 'youtube');
+                                    break;
+                                case 1:
+                                    self.fire_event('playing', 'youtube');
+                                    if (self.yt_player_timer !== undefined)
+                                        clearInterval(self.yt_player_timer);
+                                    self.yt_player_timer = setInterval(function () {
+                                        self.fire_event('timeupdate', 'youtube');
+                                    }, 100);
+                                    break;
+                                case 2:
+                                    self.fire_event('paused', 'youtube');
+                                    break;
+                                case 5:
+                                    self.fire_event('loadstart', 'youtube');
+                                    break;
+                                default:
+                                    // do nothing
+                            }
+                        },
+                        'onError': function (error) {
+                            self.fire_event('error', 'youtube', error);
+                        }
+                    }
+                });
             }
-        }
-    }
+        },
 
-    billy.AudioPlayer.prototype.load_and_play = function(track) {
-        var link = track['link'];
-        if (link.startsWith('youtube:')) {
-            this.yt_player.loadVideoById(link.substring(8));
-        }
-        else {
-            this.j_player.jPlayer("setMedia", track).jPlayer("play");
-        }
-        this.track = track;
-    }
+        load_and_play: function(track) {
+            this.load(track);
+            this.play();
+        },
 
-    billy.AudioPlayer.prototype.load = function(track) {
-        var link = track['link'];
-        if (link.startsWith('youtube:')) {
-            this.yt_player.cueVideoById(link.substring(8));
-        }
-        else {
-            this.j_player.jPlayer("setMedia", track);
-        }
-        this.track = track;
-    }
+        load: function(track) {
+            this.clear();
 
-    billy.AudioPlayer.prototype.play = function() {
-        if (this.track['link'].startsWith('youtube:')) {
-            this.yt_player.playVideo();
-        }
-        else {
-            this.j_player.jPlayer("play");
-        }
-    }
+            var link = track['link'];
+            if (link.startsWith('youtube:')) {
+                this.yt_player.cueVideoById(link.substring(8));
+            }
+            else {
+                this.j_player.jPlayer("setMedia", {mp3: track.link});
+            }
+            this.track = track;
+        },
 
-    billy.AudioPlayer.prototype.pause = function() {
-        if (this.track['link'].startsWith('youtube:')) {
-            this.yt_player.pauseVideo();
-        }
-        else {
-            this.j_player.jPlayer("pause");
-        }
-    }
+        play: function() {
+            if (this.track['link'].startsWith('youtube:')) {
+                this.yt_player.playVideo();
+            }
+            else {
+                this.j_player.jPlayer("play");
+            }
+        },
 
-    billy.AudioPlayer.prototype.stop = function() {
-        var link = this.track['link'];
-        if (link.startsWith('youtube:')) {
+        pause: function() {
+            if (this.track['link'].startsWith('youtube:')) {
+                this.yt_player.pauseVideo();
+            }
+            else {
+                this.j_player.jPlayer("pause");
+            }
+        },
+
+        stop: function() {
             this.yt_player.seekTo(0);
             this.yt_player.stopVideo();
-        }
-        else {
+            if (this.yt_player_timer !== undefined) {
+                clearInterval(this.yt_player_timer);
+                this.yt_player_timer = undefined;
+            }
+
             this.j_player.jPlayer("stop");
-        }
-    }
+        },
 
-    billy.AudioPlayer.prototype.clear = function() {
-        var link = this.track['link'];
-        if (link.startsWith('youtube:')) {
+        clear: function() {
+            this.stop();
             this.yt_player.clearVideo();
-        }
-        else {
             this.j_player.jPlayer("clearMedia");
+            this.track = undefined;
+        },
+
+        set_volume: function(value) {
+            this.yt_player.setVolume(value);
+            this.j_player.jPlayer("volume", value / 100);
+        },
+
+        get_current_time: function(value) {
+            if (this.track === undefined) {
+                return 0
+            }
+            else if (this.track['link'].startsWith('youtube:')) {
+                return this.yt_player.getCurrentTime();
+            }
+            else {
+                return this.j_player.data("jPlayer").status.currentTime;
+            }
+        },
+
+        get_duration: function(value) {
+            if (this.track === undefined) {
+                return 0
+            }
+            else if (this.track['link'].startsWith('youtube:')) {
+                return this.yt_player.getDuration();
+            }
+            else {
+                return this.j_player.data("jPlayer").status.duration;
+            }
         }
-        this.track = undefined;
-    }
-
-    billy.AudioPlayer.prototype.set_volume = function(value) {
-        this.yt_player.setVolume(value);
-        this.j_player.jPlayer("volume", value / 100);
-    }
+    });
 
 
-   /*--------------------------------------------------------------------*
-    * Audio playlist
-    *--------------------------------------------------------------------*/
 
-    billy.AudioPlaylist = function(player, playlist) {
-        this.current = 0;
+    billy.Playlist = function(player, playlist) {
+        this.current = undefined;
         this.player = player;
         this.playlist = playlist;
     };
 
-    billy.AudioPlaylist.prototype.listen = function(type, method) {
-        var listeners, handlers;
-        if (!(listeners = this.listeners)) {
-            listeners = this.listeners = {};
-        }
-        if (!(handlers = listeners[type])) {
-            handlers = listeners[type] = [];
-        }
-        handlers.push(method);
-    },
+    billy.Playlist.prototype = new billy.Observable();
+    billy.Playlist.prototype = $.extend(billy.Playlist.prototype, {
 
-    billy.AudioPlaylist.prototype.fire_event = function(type) {
-        var listeners, handlers, i, n, handler;
-        if (!(listeners = this.listeners)) {
-            return;
-        }
-        if (!(handlers = listeners[type])) {
-            return;
-        }
-        for (i = 0, n = handlers.length; i < n; i++) {
-            handler = handlers[i];
-            var args = [].slice.call(arguments);
-            if (handler.apply(this, args) === false) {
-                return false;
-            }
-        }
-    }
+        set_playlist: function(playlist) {
+            this.playlist = playlist;
+            this.fire_event('set');
+        },
 
-    billy.AudioPlaylist.prototype.set_playlist = function(playlist) {
-        this.playlist = playlist;
-        this.fire_event('set');
-    }
-
-    billy.AudioPlaylist.prototype.reposition = function(index, step) {
-        var item = this.playlist[index];
-        this.playlist.splice(index, 1);
-        this.playlist.splice(index - step, 0, item);
-        if (this.current < index && (this.current + step) < index) {
-            this.current = this.current + step;
-        }
-        if (this.current < index && (this.current + step) > index) {
-            this.current = this.current - step;
-        }
-        this.fire_event('reorder', index, step);
-    }
-
-    billy.AudioPlaylist.prototype.add = function(track) {
-        this.playlist.push(track);
-        this.fire_event('add', track);
-    }
-
-    billy.AudioPlaylist.prototype.remove = function(index) {
-        index = (index < 0) ? self.playlist.length + index : index;
-
-        if(0 <= index && index < this.playlist.length) {
+        reposition: function(index, step) {
+            var item = this.playlist[index];
             this.playlist.splice(index, 1);
+            this.playlist.splice(index - step, 0, item);
+            if (this.current < index && (this.current + step) < index) {
+                this.current = this.current + step;
+            }
+            if (this.current < index && (this.current + step) > index) {
+                this.current = this.current - step;
+            }
+            this.fire_event('reorder', index, step);
+        },
 
-            if(this.playlist.length) {
-                if(index === self.current) {
-                    this.current = (index < this.playlist.length) ? this.current : this.playlist.length - 1;
+        add: function(track) {
+            this.playlist.push(track);
+            this.fire_event('add', track);
+        },
+
+        remove: function(index) {
+            index = (index < 0) ? self.playlist.length + index : index;
+
+            if(0 <= index && index < this.playlist.length) {
+                this.playlist.splice(index, 1);
+
+                if(this.playlist.length) {
+                    if(index === self.current) {
+                        this.current = (index < this.playlist.length) ? this.current : this.playlist.length - 1;
+                        this.player.clear();
+                    }
+                    else if(index < self.current) {
+                        this.current--;
+                    }
                 }
-                else if(index < self.current) {
-                    this.current--;
+                else {
+                    this.player.clear();
+                    this.current = 0;
+                }
+                this.fire_event('remove', index);
+            }
+        },
+
+        play: function(index) {
+            index = (index < 0) ? this.playlist.length + index : index;
+            var track = this.playlist[index];
+
+            if(0 <= index && index < this.playlist.length) {
+                if(this.playlist.length) {
+                    this.player.load_and_play(track);
+                    this.current = index;
+                    this.fire_event('play', index);
                 }
             }
-            else {
-                this.player.clear();
-                this.current = 0;
-            }
-            this.fire_event('remove', index);
-        }
-    }
-
-    billy.AudioPlaylist.prototype.play = function(index) {
-        index = (index < 0) ? this.playlist.length + index : index;
-        var track = this.playlist[index];
-
-        if(0 <= index && index < this.playlist.length) {
-            if(this.playlist.length) {
+            else if(index === undefined) {
                 this.player.load_and_play(track);
                 this.current = index;
                 this.fire_event('play', index);
             }
+        },
+
+        pause: function() {
+            this.player.pause(track);
+        },
+
+        next: function() {
+            var index = (this.current + 1 < this.playlist.length) ? this.current + 1 : 0;
+
+            if(index > 0) {
+                this.play(index);
+            }
+        },
+
+        previous: function() {
+            var index = (this.current - 1 >= 0) ? this.current - 1 : this.playlist.length - 1;
+
+            if(index < this.playlist.length - 1) {
+                this.play(index);
+            }
         }
-        else if(index === undefined) {
-            this.player.load_and_play(track);
-            this.current = index;
-            this.fire_event('play', index);
-        }
-    }
-
-    billy.AudioPlaylist.prototype.pause = function() {
-        this.player.pause(track);
-    }
-
-    billy.AudioPlaylist.prototype.next = function() {
-        var index = (this.current + 1 < this.playlist.length) ? this.current + 1 : 0;
-
-        if(index > 0) {
-            this.play(index);
-        }
-    }
-
-    billy.AudioPlaylist.prototype.previous = function() {
-        var index = (this.current - 1 >= 0) ? this.current - 1 : this.playlist.length - 1;
-
-        if(index < this.playlist.length - 1) {
-            this.play(index);
-        }
-    }
+    });
 
 
-   /*--------------------------------------------------------------------*
-    * Event handlers
-    *--------------------------------------------------------------------*/
 
     billy.add_handlers = function(){
         var self = this;
 
         // Player UI event handlers
 
-        $('#player-ui .jp-play').on('click', function() {
-            $(this).hide();
-            $('#player-ui .jp-pause').show();
+        $('#player-ui .jp-pause').hide();
+        $('#player-ui .jp-play').off('click').on('click', function() {
             self.player.play();
         });
-        $('#player-ui .jp-pause').on('click', function() {
-            $(this).hide();
-            $('#player-ui .jp-play').show();
+        $('#player-ui .jp-pause').off('click').on('click', function() {
             self.player.pause();
         });
-        $('#player-ui .jp-stop').on('click', function() {
-            $('#player-ui .jp-pause').hide();
-            $('#player-ui .jp-play').show();
+        $('#player-ui .jp-stop').off('click').on('click', function() {
             self.player.stop();
         });
-        $('#player-ui .jp-previous').on('click', function() {
+        $('#player-ui .jp-previous').off('click').on('click', function() {
             self.playlist.previous();
         });
-        $('#player-ui .jp-next').on('click', function() {
+        $('#player-ui .jp-next').off('click').on('click', function() {
             self.playlist.next();
         });
-        $('#player-ui .jp-volume-bar').on('click', function(e) {
-            var posX = $(this).offset().left;
-            var posWidth = $(this).width();
-            posX = (e.pageX - posX) / posWidth;
-            $('#player-ui .jp-volume-bar .jp-volume-bar-value').width((posX * 100) + '%').show();
-            self.player.set_volume(posX * 100)
+        $('#player-ui .jp-volume-bar').off('click').on('click', function(e) {
+            var pos_x = $(this).offset().left;
+            var pos_width = $(this).width();
+            pos_x = (e.pageX - pos_x) / pos_width;
+            $('#player-ui .jp-volume-bar .jp-volume-bar-value').width((pos_x * 100) + '%').show();
+            self.player.set_volume(pos_x * 100);
         });
         $('#waveform').on('mousemove mouseout', function (event) {
             var position = (event.type == 'mousemove') ? event.clientX - $(this).offset().left : 0;
@@ -405,39 +395,40 @@ billy = {};
 
         // Player event handlers
 
-        $('#player-ui .jp-pause').hide();
         this.player.listen('loadstart', function(event, player_type) {
-            self.set_waveform(self.player.track.id);
+            self.set_waveform(self.player.track._id);
         });
         this.player.listen('playing', function(event, player_type) {
-            if (player_type == 'youtube') {
-                $('#player-ui .jp-pause').show();
-                $('#player-ui .jp-play').hide();
-            }
+            var duration = self.player.get_duration();
+            var duration_str = (duration >= 60) ? Math.floor(duration / 60).pad(2) + ':' + Math.round(duration % 60).pad(2) : '00:' + Math.round(duration).pad(2)
+
+            $('#player-ui .jp-duration').text(duration_str);
+
+            $('#player-ui .jp-pause').show();
+            $('#player-ui .jp-play').hide();
         });
         this.player.listen('ended', function(event, player_type) {
-            if (player_type == 'youtube') {
-                $('#player-ui .jp-pause').show();
-                $('#player-ui .jp-play').hide();
-            }
+            $('#player-ui .jp-pause').hide();
+            $('#player-ui .jp-play').show();
             self.update_waveform();
+
+            if (self.playlist.current !== undefined) {
+                self.playlist.next();
+            }
         });
         this.player.listen('paused', function(event, player_type) {
-            if (player_type == 'youtube') {
-                $('#player-ui .jp-pause').hide();
-                $('#player-ui .jp-play').show();
-            }
+            $('#player-ui .jp-pause').hide();
+            $('#player-ui .jp-play').show();
         });
         this.player.listen('timeupdate', function(event, player_type) {
-            if (player_type == 'youtube') {
-                if (self.player.yt_player.getCurrentTime() >= 60) {
-                    $('#player-ui .jp-current-time').text(Math.floor(self.player.yt_player.getCurrentTime() / 60).pad(2) + ':' + Math.round(self.player.yt_player.getCurrentTime() % 60).pad(2));
-                }
-                else {
-                    $('#player-ui .jp-current-time').text('00:' + Math.round(self.player.yt_player.getCurrentTime()).pad(2));
-                    $('#player-ui .jp-progress .jp-play-bar').width(Math.round((self.player.yt_player.getCurrentTime() / self.player.yt_player.getDuration()) * 100) + '%');
-                }
-            }
+            var duration = self.player.get_duration();
+
+            var time = self.player.get_current_time();
+            var time_str = (time >= 60) ? Math.floor(time / 60).pad(2) + ':' + Math.round(time % 60).pad(2) : '00:' + Math.round(time).pad(2)
+
+            $('#player-ui .jp-current-time').text(time_str);
+            $('#player-ui .jp-progress .jp-play-bar').width(Math.round((time / duration) * 100) + '%');
+
             self.update_waveform();
         });
 
@@ -456,6 +447,7 @@ billy = {};
         });
         this.playlist.listen('play', function(event, index) {
             // Refresh highlighting
+            $("#results .jp-playlist-current").removeClass("jp-playlist-current");
             $("#playlist .jp-playlist-current").removeClass("jp-playlist-current");
             $("#playlist li:nth-child(" + (index + 1) + ")").addClass("jp-playlist-current");
         });
@@ -474,11 +466,6 @@ billy = {};
                 $("#playlist li:nth-child(" + (index + 1) + ")").before($("#playlist li:nth-child(" + (index + 1 - step) + ")"));
         });
     }
-
-
-   /*--------------------------------------------------------------------*
-    * Playlist operations
-    *--------------------------------------------------------------------*/
 
     billy.add_playlists = function(playlists) {
         // Add playlists + add links to the playlist tabs
@@ -581,11 +568,6 @@ billy = {};
         this.recommend();
     }
 
-
-   /*--------------------------------------------------------------------*
-    * Communication with Billy server
-    *--------------------------------------------------------------------*/
-
     billy.search = function() {
         var query = $("#search-query").val();
         this.call_api(this.api_tracks.format(query, ''), $("#search"), function() {billy.change_results('search');});
@@ -628,7 +610,7 @@ billy = {};
                     link: val['link'],
                     image: val['image'],
                     musicinfo: val['musicinfo'],
-                    id: val['_id']
+                    _id: val['_id']
                 };
                 self.results[val['_id']] = track;
 
@@ -708,13 +690,8 @@ billy = {};
         });
     }
 
-
-   /*--------------------------------------------------------------------*
-    * Miscellaneous
-    *--------------------------------------------------------------------*/
-
     billy.create_listitem = function(track, inPlaylist) {
-        var item_html = '<li class="list-group-item shorten" data-track-id="' + track['id'] + '">';
+        var item_html = '<li class="list-group-item shorten" data-track-id="' + track['_id'] + '">';
         var tags_html = this.create_tags_popover(track['musicinfo']);
 
         item_html += '<div class="pull-right m-l btn-group">';
@@ -729,7 +706,7 @@ billy = {};
         }
         else {
             item_html += '<a href="#" data-toggle="popover" data-placement="bottom" tabindex="0" data-trigger="focus" title="Tags" data-content="' + tags_html + '" class="m-r-sm"><span class="glyphicon glyphicon-info-sign"></span></a>';
-            item_html += '<a href="#" onclick="window.location = \'' + this.api_download.format(track['id']) + '\'" class="m-r-sm"><span class="glyphicon glyphicon-record"></span></a>';
+            item_html += '<a href="#" onclick="window.location = \'' + this.api_download.format(track['_id']) + '\'" class="m-r-sm"><span class="glyphicon glyphicon-record"></span></a>';
             item_html += '<a href="#" data-action="play" class="m-r-sm"><span class="glyphicon glyphicon-play-circle"></span></a>';
             item_html += '<a href="#" data-action="add" class="m-r-sm"><span class="glyphicon glyphicon-remove-circle rotate-45"></span></a>';
         }
@@ -743,7 +720,7 @@ billy = {};
 
         var item = $(item_html);
 
-        // Bind event handlers
+        // Add event handlers
 
         var self = this;
         item.off("click", "a").on("click", "a", function(e) {
@@ -801,7 +778,7 @@ billy = {};
                 var index = this.playlist.playlist.length - 1
                 this.playlist.current = index;
                 this.playlist.fire_event('play', index);
-                $('#results .list-group').children(".jp-playlist-current").removeClass("jp-playlist-current");
+                $('#results .jp-playlist-current').removeClass('jp-playlist-current')
             }
             this.save_to_server();
             this.clicklog({
@@ -819,11 +796,11 @@ billy = {};
             this.player.load_and_play(track);
 
             // Set highlighting
-            $('#results .list-group').children(".jp-playlist-current").removeClass("jp-playlist-current");
+            $('#playlist').children(".jp-playlist-current").removeClass("jp-playlist-current");
+            $('#results').children(".jp-playlist-current").removeClass("jp-playlist-current");
             $('#results .list-group-item[data-track-id="' + track_id + '"]').addClass('jp-playlist-current');
             // Reset playlist index
             this.playlist.current = undefined;
-            this.playlist._refresh(true);
         }
     }
 
@@ -931,10 +908,12 @@ billy = {};
     }
 
 
-    billy.player = new billy.AudioPlayer({jplayer_core: '#player-core',
-                                          jplayer_ui: '#player-ui',
-                                          youtube: 'yt_player'});
-    billy.playlist = new billy.AudioPlaylist(billy.player, []);
+    billy.player = new billy.Player({jplayer_core: '#player-core',
+                                     jplayer_ui: '#player-ui',
+                                     youtube: 'yt_player'});
+
+    billy.playlist = new billy.Playlist(billy.player, []);
+
     billy.add_handlers();
 
 })(billy, jQuery);

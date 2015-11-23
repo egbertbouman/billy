@@ -57,42 +57,40 @@
 
       <div class="container container-fixed">
 
-        <div id="player-core" class="jp-jplayer"></div>
-        <div id="player-ui" class="jp-audio">
-          <div class="jp-type-playlist">
-              <div class="jp-gui jp-interface">
-                  <div class="btn-group jp-controls">
-                    <button type="button" class="btn btn-default jp-previous"><span class="glyphicon glyphicon-step-backward"></span></button>
-                    <button type="button" class="btn btn-default jp-play"><span class="glyphicon glyphicon-play"></span></button>
-                    <button type="button" class="btn btn-default jp-pause"><span class="glyphicon glyphicon-pause"></span></button>
-                    <button type="button" class="btn btn-default jp-stop"><span class="glyphicon glyphicon-stop"></span></button>
-                    <button type="button" class="btn btn-default jp-next"><span class="glyphicon glyphicon-step-forward"></span></button>
+        <div id="player-core" class="player"></div>
+        <div id="player-ui" class="audio">
+          <div class="type-playlist">
+              <div class="gui interface">
+                  <div class="btn-group controls">
+                    <button type="button" class="btn btn-default previous"><span class="glyphicon glyphicon-step-backward"></span></button>
+                    <button type="button" class="btn btn-default play"><span class="glyphicon glyphicon-play"></span></button>
+                    <button type="button" class="btn btn-default pause"><span class="glyphicon glyphicon-pause"></span></button>
+                    <button type="button" class="btn btn-default stop"><span class="glyphicon glyphicon-stop"></span></button>
+                    <button type="button" class="btn btn-default next"><span class="glyphicon glyphicon-step-forward"></span></button>
                   </div>
                   <div class="volume-container">
                     <span class="glyphicon glyphicon-volume-down"></span>
-                    <div class="jp-volume-bar progress">
-                      <div class="jp-volume-bar-value progress-bar"></div>
+                    <div class="volume-bar progress">
+                      <div class="volume-bar-value progress-bar"></div>
                     </div>
                     <span class="glyphicon glyphicon-volume-up"></span>
                   </div>
 
-                  <div class="jp-time-holder">
-                    <div class="jp-current-time"></div>
-                    <div class="seek-bar">
-                      <div class="jp-seek-bar">
-                        <div class="jp-play-bar">
+                  <div class="time-holder">
+                    <div class="current-time"></div>
+                    <div class="outer-seek-bar">
+                      <div class="inner-seek-bar">
+                        <div class="play-bar">
                             <canvas width='400' height='50' id='waveform'></canvas>
                         </div>
                       </div>
                     </div>
-                    <div class="jp-duration"></div>
+                    <div class="duration"></div>
                   </div>
-                  <div class="jp-toggles">
-                    <!-- <button type="button" class="btn btn-default jp-shuffle"><span class="glyphicon glyphicon-random"></span></button> -->
-                    <button type="button" class="btn btn-default active jp-shuffle-off"><span class="glyphicon glyphicon-random"></span></button>
-                    <button type="button" class="btn btn-default jp-repeat"><span class="glyphicon glyphicon-repeat"></span></button>
-                    <button type="button" class="btn btn-default active jp-repeat-off"><span class="glyphicon glyphicon-repeat"></span></button>
-                  </div>
+                  <!--<div class="toggles">
+                    <button type="button" class="btn btn-default repeat"><span class="glyphicon glyphicon-repeat"></span></button>
+                    <button type="button" class="btn btn-default active repeat-off"><span class="glyphicon glyphicon-repeat"></span></button>
+                  </div>-->
               </div>
               <div class="jp-no-solution">
                   <span>Update Required</span>
@@ -164,7 +162,7 @@
 
           </div>
         </div>
-        <div class="jp-playlist" id="playlist">
+        <div class="playlist" id="playlist">
           <div class="column-description"></div>
           <ul>
             <li></li>

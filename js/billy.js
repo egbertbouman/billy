@@ -96,7 +96,7 @@ billy = {};
                     self.fire_event('ended', 'jplayer');
                 },
                 pause: function () {
-                    self.fire_event('pause', 'jplayer');
+                    self.fire_event('paused', 'jplayer');
                 },
                 timeupdate: function () {
                     self.fire_event('timeupdate', 'jplayer');
@@ -154,7 +154,7 @@ billy = {};
                                         clearInterval(self.yt_player_timer);
                                     self.yt_player_timer = setInterval(function () {
                                         self.fire_event('timeupdate', 'youtube');
-                                    }, 100);
+                                    }, 250);
                                     break;
                                 case 2:
                                     self.fire_event('paused', 'youtube');
@@ -231,6 +231,15 @@ billy = {};
         set_volume: function(value) {
             this.yt_player.setVolume(value);
             this.j_player.jPlayer("volume", value / 100);
+        },
+
+        seek: function(value) {
+            if (this.track['link'].startsWith('youtube:')) {
+                return this.yt_player.seekTo(value);
+            }
+            else {
+                return this.j_player.jPlayer("play", value);
+            }
         },
 
         get_current_time: function(value) {
@@ -361,28 +370,34 @@ billy = {};
 
         // Player UI event handlers
 
-        $('#player-ui .jp-pause').hide();
-        $('#player-ui .jp-play').off('click').on('click', function() {
+        $('#player-ui .pause').hide();
+        $('#player-ui .play').on('click', function() {
             self.player.play();
         });
-        $('#player-ui .jp-pause').off('click').on('click', function() {
+        $('#player-ui .pause').on('click', function() {
             self.player.pause();
         });
-        $('#player-ui .jp-stop').off('click').on('click', function() {
+        $('#player-ui .stop').on('click', function() {
             self.player.stop();
         });
-        $('#player-ui .jp-previous').off('click').on('click', function() {
+        $('#player-ui .previous').on('click', function() {
             self.playlist.previous();
         });
-        $('#player-ui .jp-next').off('click').on('click', function() {
+        $('#player-ui .next').on('click', function() {
             self.playlist.next();
         });
-        $('#player-ui .jp-volume-bar').off('click').on('click', function(e) {
+        $('#player-ui .volume-bar').on('click', function(e) {
             var pos_x = $(this).offset().left;
             var pos_width = $(this).width();
             pos_x = (e.pageX - pos_x) / pos_width;
-            $('#player-ui .jp-volume-bar .jp-volume-bar-value').width((pos_x * 100) + '%').show();
+            $('#player-ui .volume-bar .volume-bar-value').width((pos_x * 100) + '%').show();
             self.player.set_volume(pos_x * 100);
+        });
+        $('#player-ui .inner-seek-bar').on('click', function(e) {
+            var pos_x = $(this).offset().left;
+            var pos_width = $(this).width();
+            pos_x = (e.pageX - pos_x) / pos_width;
+            self.player.seek(pos_x * self.player.get_duration());
         });
         $('#waveform').on('mousemove mouseout', function (event) {
             var position = (event.type == 'mousemove') ? event.clientX - $(this).offset().left : 0;
@@ -399,17 +414,12 @@ billy = {};
             self.set_waveform(self.player.track._id);
         });
         this.player.listen('playing', function(event, player_type) {
-            var duration = self.player.get_duration();
-            var duration_str = (duration >= 60) ? Math.floor(duration / 60).pad(2) + ':' + Math.round(duration % 60).pad(2) : '00:' + Math.round(duration).pad(2)
-
-            $('#player-ui .jp-duration').text(duration_str);
-
-            $('#player-ui .jp-pause').show();
-            $('#player-ui .jp-play').hide();
+            $('#player-ui .pause').show();
+            $('#player-ui .play').hide();
         });
         this.player.listen('ended', function(event, player_type) {
-            $('#player-ui .jp-pause').hide();
-            $('#player-ui .jp-play').show();
+            $('#player-ui .pause').hide();
+            $('#player-ui .play').show();
             self.update_waveform();
 
             if (self.playlist.current !== undefined) {
@@ -417,17 +427,18 @@ billy = {};
             }
         });
         this.player.listen('paused', function(event, player_type) {
-            $('#player-ui .jp-pause').hide();
-            $('#player-ui .jp-play').show();
+            $('#player-ui .pause').hide();
+            $('#player-ui .play').show();
         });
         this.player.listen('timeupdate', function(event, player_type) {
             var duration = self.player.get_duration();
+            var duration_str = (duration >= 60) ? Math.floor(duration / 60).pad(2) + ':' + Math.round(duration % 60).pad(2) : '00:' + Math.round(duration).pad(2)
+            $('#player-ui .duration').text(duration_str);
 
             var time = self.player.get_current_time();
             var time_str = (time >= 60) ? Math.floor(time / 60).pad(2) + ':' + Math.round(time % 60).pad(2) : '00:' + Math.round(time).pad(2)
-
-            $('#player-ui .jp-current-time').text(time_str);
-            $('#player-ui .jp-progress .jp-play-bar').width(Math.round((time / duration) * 100) + '%');
+            $('#player-ui .current-time').text(time_str);
+            $('#player-ui .inner-seek-bar .play-bar').width(((time / duration) * 100) + '%');
 
             self.update_waveform();
         });
@@ -446,10 +457,7 @@ billy = {};
             });
         });
         this.playlist.listen('play', function(event, index) {
-            // Refresh highlighting
-            $("#results .jp-playlist-current").removeClass("jp-playlist-current");
-            $("#playlist .jp-playlist-current").removeClass("jp-playlist-current");
-            $("#playlist li:nth-child(" + (index + 1) + ")").addClass("jp-playlist-current");
+            self.set_highlighting();
         });
         this.playlist.listen('add', function(event, track) {
             var target = $("#playlist");
@@ -585,7 +593,7 @@ billy = {};
             }
 
             // Find out which track is highlighted (if any)
-            var current = $('#results .list-group').children('.jp-playlist-current').data('track-id');
+            var current = $('#results .list-group').children('.playlist-current').data('track-id');
 
             target.empty();
 
@@ -618,7 +626,7 @@ billy = {};
                 item.appendTo(target);
 
                 if (current == val['_id'])
-                    item.addClass('jp-playlist-current');
+                    item.addClass('playlist-current');
             });
 
             if (callback !== undefined)
@@ -700,7 +708,7 @@ billy = {};
             item_html += '<a href="#" data-action="pl_moveup"class="m-r-sm"><span class="glyphicon glyphicon-circle-arrow-up"></span></a>';
             item_html += '<a href="#" data-action="pl_movedown"class="m-r-sm"><span class="glyphicon glyphicon-circle-arrow-down"></span></a>';
             item_html += '<a href="#" data-toggle="popover" data-placement="bottom" tabindex="0" data-trigger="focus" title="Tags" data-content="' + tags_html + '" class="m-r-sm"><span class="glyphicon glyphicon-info-sign"></span></a>';
-            item_html += '<a href="#" onclick="window.location = \'' + billy.api_download.format(track.id) + '\'; return false;" class="m-r-sm"><span class="glyphicon glyphicon-record"></span></a>';
+            item_html += '<a href="#" onclick="window.location = \'' + billy.api_download.format(track.id) + '\'" class="m-r-sm"><span class="glyphicon glyphicon-record"></span></a>';
             item_html += '<a href="#" data-action="pl_play" class="m-r-sm"><span class="glyphicon glyphicon-play-circle"></span></a>';
             item_html += '<a href="#" data-action="pl_remove" class="m-r-sm"><span class="glyphicon glyphicon-remove-circle"></span></a>';
         }
@@ -723,11 +731,14 @@ billy = {};
         // Add event handlers
 
         var self = this;
-        item.off("click", "a").on("click", "a", function(e) {
+        item.off('click', 'a').on('click', 'a', function(e) {
             e.preventDefault();
             var action = $(this).data("action");
 
-            if (action.startsWith('pl_')) {
+            if (action === undefined) {
+                return;
+            }
+            else if (action.startsWith('pl_')) {
                 var index = $(this).parents('.list-group-item').index();
 
                 if (action === 'pl_play')
@@ -752,6 +763,21 @@ billy = {};
         return item;
     }
 
+    billy.set_highlighting = function() {
+        if (this.playlist.current === undefined) {
+            var track_id = this.player.track._id;
+            $('#playlist .playlist-current').removeClass("playlist-current");
+            $('#results .playlist-current').removeClass("playlist-current");
+            $('#results .list-group-item[data-track-id="' + track_id + '"]').addClass('playlist-current');
+        }
+        else {
+            var index = this.playlist.current;
+            $("#results .playlist-current").removeClass("playlist-current");
+            $("#playlist .playlist-current").removeClass("playlist-current");
+            $("#playlist li:nth-child(" + (index + 1) + ")").addClass("playlist-current");
+        }
+    }
+
     billy.change_results = function(name) {
         // Highlight tab
         $('#' + name + '-tab').tab('show');
@@ -773,12 +799,10 @@ billy = {};
     billy.add_track = function(track_id) {
         if (track_id in this.results) {
             this.playlist.add(this.results[track_id]);
-            if ($('#results .list-group').children('.jp-playlist-current').data('track-id') == track_id) {
+            if ($('#results .list-group').children('.playlist-current').data('track-id') == track_id) {
                 // Change the playlist state if the track is currently playing
-                var index = this.playlist.playlist.length - 1
-                this.playlist.current = index;
-                this.playlist.fire_event('play', index);
-                $('#results .jp-playlist-current').removeClass('jp-playlist-current')
+                this.playlist.current = this.playlist.playlist.length - 1;
+                this.set_highlighting();
             }
             this.save_to_server();
             this.clicklog({
@@ -795,12 +819,9 @@ billy = {};
             var track = this.results[track_id];
             this.player.load_and_play(track);
 
-            // Set highlighting
-            $('#playlist').children(".jp-playlist-current").removeClass("jp-playlist-current");
-            $('#results').children(".jp-playlist-current").removeClass("jp-playlist-current");
-            $('#results .list-group-item[data-track-id="' + track_id + '"]').addClass('jp-playlist-current');
             // Reset playlist index
             this.playlist.current = undefined;
+            this.set_highlighting();
         }
     }
 
@@ -853,6 +874,9 @@ billy = {};
                 wave_color: "#337ab7",
                 download: false,
                 onComplete: function(png, pixels) {
+                    $('#player-ui .inner-seek-bar').removeClass('progress').removeClass('inner-seek-bar-nowaveform');
+                    $('#player-ui .play-bar').removeClass('progress-bar').children().show();
+
                     var context = $("#waveform")[0].getContext('2d');
 
                     // Waveform image data in different colors
@@ -878,6 +902,10 @@ billy = {};
                 }
             };
             SoundCloudWaveform.generate(data['waveform'], settings);
+        })
+        .fail(function() {
+            $('#player-ui .inner-seek-bar').addClass('progress').addClass('inner-seek-bar-nowaveform');
+            $('#player-ui .play-bar').addClass('progress-bar').children().hide();
         });
     }
 
@@ -887,7 +915,7 @@ billy = {};
 
         var context = $("#waveform")[0].getContext('2d');
 
-        var play_position = $('.jp-play-bar').width();
+        var play_position = $('.play-bar').width();
         var mouse_position = this.waveform_mouse_pos || 0;
 
         // Draw background

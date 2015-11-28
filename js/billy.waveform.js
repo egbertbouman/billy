@@ -21,7 +21,7 @@ var SoundCloudWaveform = {
     generate: function(file, options) {
 
         // preparing canvas
-        this.settings.canvas = document.createElement('canvas');
+        this.settings.canvas = document.getElementById('waveform');
         this.settings.context = this.settings.canvas.getContext('2d');
 
         this.settings.canvas.width = (options.canvas_width !== undefined) ? parseInt(options.canvas_width) : this.settings.canvas_width;

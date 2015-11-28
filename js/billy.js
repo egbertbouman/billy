@@ -1,6 +1,10 @@
 String.prototype.format = function () {
-  var args = arguments;
-  return this.replace(/\{(\d+)\}/g, function (m, n) { return args[n]; });
+    var args = arguments;
+    return this.replace(/\{(\d+)\}/g, function (m, n) { return args[n]; });
+};
+
+String.prototype.startsWith = function (str) {
+    return this.indexOf(str) == 0;
 };
 
 Number.prototype.pad = function(size) {
@@ -406,12 +410,16 @@ billy = {};
                 self.update_waveform();
             }
         });
+        $(window).resize(function() {
+            self.set_waveform(self.player.track._id);
+        });
 
 
         // Player event handlers
 
         this.player.listen('loadstart', function(event, player_type) {
-            self.set_waveform(self.player.track._id);
+            self.set_waveform(self.player.track._id, true);
+            $('#yt_player').toggle((player_type === 'youtube'));
         });
         this.player.listen('playing', function(event, player_type) {
             $('#player-ui .pause').show();
@@ -862,14 +870,29 @@ billy = {};
         return tags_html;
     }
 
-    billy.set_waveform = function(track_id) {
+    billy.set_waveform = function(track_id, force) {
         var self = this;
 
-        $.getJSON(self.api_waveform.format(track_id), function(data) {
+        var wave_width;
+        var elem_width = $('#waveform').width();
+        var choices = [300, 400, 600, 1200];
+
+        for (var i = choices.length; i--;) {
+            wave_width = choices[i];
+            if (wave_width < elem_width)
+                break;
+        }
+
+        if (this.waveform_width === wave_width && !force)
+            return;
+
+        this.waveform_width = wave_width;
+
+        $.getJSON(this.api_waveform.format(track_id), function(data) {
             settings = {
-                canvas_width: $('#waveform').width(),
+                canvas_width: wave_width,
                 canvas_height: $('#waveform').height(),
-                bar_width: 3,
+                bar_width: 1200 / wave_width,
                 bar_gap : 0.2,
                 wave_color: "#337ab7",
                 download: false,
@@ -915,8 +938,12 @@ billy = {};
 
         var context = $("#waveform")[0].getContext('2d');
 
-        var play_position = $('.play-bar').width();
         var mouse_position = this.waveform_mouse_pos || 0;
+        // Convert to position within the waveform canvas
+        mouse_position = mouse_position * (this.waveform_width / $(".inner-seek-bar").width());
+
+        // Play position within canvas
+        var play_position = this.waveform_width * ($(".play-bar").width() / $('.play-bar').parent().width());
 
         // Draw background
         context.putImageData(this.waveform_gs, 0, 0);

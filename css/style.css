@@ -2,9 +2,14 @@ body {
     padding-top: 90px;
     padding-bottom: 90px
 }
+.container-fixed {
+    min-width: 1000px;
+}
+
+/* Player */
 #player-container {
-    width: 100%;
     height: 50px;
+    width: 100%;
     background-color: #f6f6f6;
     border-top: 1px solid #aaa;
     bottom: 0px;
@@ -12,63 +17,88 @@ body {
     position: fixed;
     z-index: 1999;
 }
-.container-fixed {
-    min-width: 1000px;
+.controls {
+    line-height: 50px;
+    position: absolute;
+    left: 10px;
+    padding: 0;
 }
-.controls, .toggles {
-    vertical-align: top;
-    margin-top: 9px;
-    float:left;
+.controls li {
+    line-height: 50px;
+    display: inline-block;
+    padding: 0 8px;
+    cursor: pointer;
+    vertical-align: middle;
+
 }
-.toggles {
-    float:right;
+.volume-container {
+    height: 50px;
+    position: absolute;
+    left: 190px;
+    top: -2px;
+}
+.volume-bar {
+    width: 140px;
+    height: 14px;
+    margin: 0;
+}
+.time-holder {
+    height: 50px;
+    position: absolute;
+    left: 420px;
+    right: 20px;
 }
 .glyphicon-volume-down,
 .glyphicon-volume-up,
 .duration,
 .current-time {
     display: inline-block;
-    vertical-align: top;
-    line-height: 17px;
+    line-height: 50px;
+}
+.duration {
+    right:0px;
+    position:absolute;
 }
 .volume-container,
 .time-holder,
-.toggles,
 .volume-bar,
 .outer-seek-bar {
     display: inline-block;
-}
-.time-holder,
-.volume-container {
-    float:left;
-    height: 20px;
-    vertical-align: top;
-    margin-top: 18px;
-    margin-right: 10px;
-    margin-left: 10px;
-}
-.volume-container {
-    margin-top: 17px;
-}
-.volume-bar {
-    width: 140px;
-    height: 14px;
 }
 .inner-seek-bar {
     width: 100%;
     height: 50px;
 }
 .inner-seek-bar-nowaveform {
-    width: 400px;
+    width: 100%;
     height: 14px;
 }
 .outer-seek-bar {
-    min-width: 300px;
+    position: absolute;
+    right: 40px;
+    left: 40px;
+    bottom: 0px;
 }
-.time-holder {
-    height: 50px;
+.play, .pause {
+    font-size: 1.5em;
+}
+#waveform {
+    cursor: pointer;
+    position: absolute;
+    left: 0px;
+    right: 0px;
+    width: 100%;
+    height: 50px
+}
+#yt_player {
+    position:fixed;
+    bottom:50px;
+    z-index:9999;
+    display: none;
 }
 
+
+/* List items */
 .playlist ul {
     list-style: none;
     margin: 0;
@@ -157,14 +187,4 @@ span.rollover:hover {
 }
 .nav-tabs {
     margin-bottom: 10px;
-}
-#waveform {
-    cursor: pointer;
-}
-
-#yt_player {
-    position:fixed;
-    bottom:50px;
-    z-index:9999;
-    display: none;
 }

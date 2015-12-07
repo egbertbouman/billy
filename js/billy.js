@@ -69,10 +69,11 @@ billy = {};
 
 
     billy.Player = function(css_selectors) {
-        this.players_total = 2;
+        this.players_total = 3;
         this.players_ready = 0;
         this.setup_jplayer(css_selectors['jplayer_core'], css_selectors['jplayer_ui']);
         this.setup_youtube(css_selectors['youtube']);
+        this.setup_soundcloud(css_selectors['soundcloud'])
     }
 
     billy.Player.prototype = new billy.Observable();
@@ -118,10 +119,9 @@ billy = {};
             var self = this;
 
             // Load Youtube API
-            var tag = document.createElement('script');
-            tag.src = "http://www.youtube.com/iframe_api";
-            var firstScriptTag = document.getElementsByTagName('script')[0];
-            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+            $.getScript('http://www.youtube.com/iframe_api');
+
+            $('<div id="' + css_selector + '"></div>').appendTo('body');
             
             // Create player
             window.onYouTubeIframeAPIReady = function() {
@@ -149,6 +149,9 @@ billy = {};
                         },
                         'onStateChange': function (state) {
                             switch(state.data) {
+                                case -1:
+                                    self.fire_event('timeupdate', 'youtube');
+                                    break;
                                 case 0:
                                     self.fire_event('ended', 'youtube');
                                     break;
@@ -178,20 +181,69 @@ billy = {};
             }
         },
 
-        load_and_play: function(track) {
-            this.load(track);
-            this.play();
+        setup_soundcloud: function(css_selector) {
+            var self = this;
+
+            // Load SoundCloud API
+            $.when(
+                $.getScript('http://connect.soundcloud.com/sdk.js'),
+                $.getScript('https://w.soundcloud.com/player/api.js'),
+                $.Deferred(function(deferred) {
+                    $(deferred.resolve);
+                })
+            ).done(function() {
+                // Start player
+                SC.initialize({
+                    client_id: "ac0c94880338e855de3743d143368221"
+                });
+
+                $('<iframe id="' + css_selector + '" src="https://w.soundcloud.com/player/?url=https://api.soundcloud.com/tracks/39804767&show_artwork=false&liking=false&sharing=false&auto_play=false" scrolling="no" frameborder="no"></iframe>').appendTo('body');
+
+                self.sc_player = SC.Widget(css_selector);
+
+                self.sc_player.bind(SC.Widget.Events.READY, function() {
+                    self.players_ready += 1;
+                    if (self.players_ready === self.players_total)
+                        self.fire_event('ready');
+                });
+                self.sc_player.bind(SC.Widget.Events.PLAY, function() {
+                    self.fire_event('playing', 'soundcloud');
+                });
+                self.sc_player.bind(SC.Widget.Events.PAUSE, function() {
+                    self.fire_event('paused', 'soundcloud');
+                });
+                self.sc_player.bind(SC.Widget.Events.FINISH, function() {
+                    self.fire_event('ended', 'soundcloud');
+                });
+                self.sc_player.bind(SC.Widget.Events.SEEK, function() {
+                    self.fire_event('timeupdate', 'soundcloud');
+                });
+                self.sc_player.bind(SC.Widget.Events.PLAY_PROGRESS, function() {
+                    self.sc_player.getPosition(function(value) { self.sc_player_position = value / 1000; });
+                    self.sc_player.getDuration(function(value) { self.sc_player_duration = value / 1000; });
+                    self.fire_event('timeupdate', 'soundcloud');
+                });
+                self.sc_player.bind(SC.Widget.Events.ERROR, function() {
+                    self.fire_event('error', 'soundcloud');
+                });
+            });
         },
 
-        load: function(track) {
+        load_and_play: function(track) {
             this.clear();
 
             var link = track['link'];
             if (link.startsWith('youtube:')) {
                 this.yt_player.cueVideoById(link.substring(8));
+                this.yt_player.playVideo();
+            }
+            else if (link.startsWith('soundcloud:')) {
+                var self = this;
+                this.sc_player.load('http://api.soundcloud.com/tracks/' + link.substring(11), { callback: function () { self.sc_player.play(); }});
             }
             else {
-                this.j_player.jPlayer("setMedia", {mp3: track.link});
+                this.j_player.jPlayer("setMedia", {mp3: link});
+                this.j_player.jPlayer("play");
             }
             this.track = track;
         },
@@ -199,6 +251,9 @@ billy = {};
         play: function() {
             if (this.track['link'].startsWith('youtube:')) {
                 this.yt_player.playVideo();
+            }
+            else if (this.track['link'].startsWith('soundcloud:')) {
+                this.sc_player.play();
             }
             else {
                 this.j_player.jPlayer("play");
@@ -209,18 +264,25 @@ billy = {};
             if (this.track['link'].startsWith('youtube:')) {
                 this.yt_player.pauseVideo();
             }
+            else if (this.track['link'].startsWith('soundcloud:')) {
+                this.sc_player.pause();
+            }
             else {
                 this.j_player.jPlayer("pause");
             }
         },
 
         stop: function() {
-            this.yt_player.seekTo(0);
             this.yt_player.stopVideo();
+            this.yt_player.seekTo(0);
             if (this.yt_player_timer !== undefined) {
                 clearInterval(this.yt_player_timer);
                 this.yt_player_timer = undefined;
+                this.fire_event('paused', 'youtube');
             }
+
+            this.sc_player.pause();
+            this.sc_player.seekTo(0);
 
             this.j_player.jPlayer("stop");
         },
@@ -234,15 +296,19 @@ billy = {};
 
         set_volume: function(value) {
             this.yt_player.setVolume(value);
+            this.sc_player.setVolume(value / 100);
             this.j_player.jPlayer("volume", value / 100);
         },
 
         seek: function(value) {
             if (this.track['link'].startsWith('youtube:')) {
-                return this.yt_player.seekTo(value);
+                this.yt_player.seekTo(value);
+            }
+            else if (this.track['link'].startsWith('soundcloud:')) {
+                this.sc_player.seekTo(value * 1000);
             }
             else {
-                return this.j_player.jPlayer("play", value);
+                this.j_player.jPlayer("play", value);
             }
         },
 
@@ -251,7 +317,10 @@ billy = {};
                 return 0
             }
             else if (this.track['link'].startsWith('youtube:')) {
-                return this.yt_player.getCurrentTime();
+                return (this.yt_player.getPlayerState() === -1) ? 0 : this.yt_player.getCurrentTime();
+            }
+            else if (this.track['link'].startsWith('soundcloud:')) {
+                return this.sc_player_position;
             }
             else {
                 return this.j_player.data("jPlayer").status.currentTime;
@@ -264,6 +333,9 @@ billy = {};
             }
             else if (this.track['link'].startsWith('youtube:')) {
                 return this.yt_player.getDuration();
+            }
+            else if (this.track['link'].startsWith('soundcloud:')) {
+                return this.sc_player_duration;
             }
             else {
                 return this.j_player.data("jPlayer").status.duration;
@@ -965,7 +1037,8 @@ billy = {};
 
     billy.player = new billy.Player({jplayer_core: '#player-core',
                                      jplayer_ui: '#player-ui',
-                                     youtube: 'yt_player'});
+                                     youtube: 'yt_player',
+                                     soundcloud: 'sc_player'});
 
     billy.playlist = new billy.Playlist(billy.player, []);
 

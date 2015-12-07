@@ -96,6 +96,12 @@ body {
     z-index:9999;
     display: none;
 }
+#sc_player {
+    position:fixed;
+    width: 100px;
+    height: 100px;
+    left: -100px;
+}
 
 
 /* List items */

@@ -489,6 +489,13 @@ billy = {};
 
         // Player event handlers
 
+        this.player.listen('ready', function() {
+            $.ajaxSetup({cache: false});
+            self.load_from_server();
+
+            $('#player-ui .volume-bar-value').width('10%');
+            this.set_volume(10);
+        });
         this.player.listen('loadstart', function(event, player_type) {
             self.set_waveform(self.player.track._id, true);
             $('#yt_player').toggle((player_type === 'youtube'));

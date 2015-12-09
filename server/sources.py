@@ -162,6 +162,8 @@ class YoutubeSource(object):
             items = response_dict['items']
             for item in items:
                 snippet = item['snippet']
+                if snippet['title'] in ['Deleted video', 'Private video']:
+                    continue
                 results.append({'title': snippet['title'],
                                 'link': 'youtube:' + snippet['resourceId']['videoId'],
                                 'ts': datetime_to_ts(parse(snippet['publishedAt'])),

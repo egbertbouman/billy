@@ -219,11 +219,6 @@
             }
       });
 
-      billy.player.listen('ready', function() {
-          $.ajaxSetup({ cache: false });
-          billy.load_from_server();
-      });
-
       $('#new-playlist-close1').add($('#new-playlist-close2')).click(function (evt) {
         if (!evt.isDefaultPrevented()) {
           if (Object.keys(billy.playlists).length > 0) {

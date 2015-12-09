@@ -219,7 +219,11 @@ billy = {};
                     self.fire_event('timeupdate', 'soundcloud');
                 });
                 self.sc_player.bind(SC.Widget.Events.PLAY_PROGRESS, function() {
-                    self.sc_player.getPosition(function(value) { self.sc_player_position = value / 1000; });
+                    self.sc_player.getPosition(function(value) {
+                        if (value === 0)
+                            self.fire_event('loadstart', 'soundcloud');
+                        self.sc_player_position = value / 1000;
+                    });
                     self.sc_player.getDuration(function(value) { self.sc_player_duration = value / 1000; });
                     self.fire_event('timeupdate', 'soundcloud');
                 });

@@ -194,3 +194,11 @@ span.rollover:hover {
 .nav-tabs {
     margin-bottom: 10px;
 }
+
+.progress-bar {
+    -webkit-transition: none;
+    -moz-transition: none;
+    -ms-transition: none;
+    -o-transition: none;
+    transition: none;
+}

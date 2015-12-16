@@ -12,7 +12,7 @@ from pymongo import MongoClient
 from bson.objectid import ObjectId
 from pymongo.son_manipulator import SONManipulator
 
-SOURCES_CHECK_INTERVAL = 300
+SOURCES_CHECK_INTERVAL = 24*3600
 
 
 class ObjectIdToString(SONManipulator):
@@ -23,7 +23,7 @@ class ObjectIdToString(SONManipulator):
 
 class Database(threading.Thread):
 
-    def __init__(self, config, add_track_cb):
+    def __init__(self, config, db_name, add_track_cb):
         threading.Thread.__init__(self)
 
         self.config = config
@@ -32,7 +32,7 @@ class Database(threading.Thread):
         mongo_host = self.config.get('database', 'mongo_host')
         mongo_port = int(self.config.get('database', 'mongo_port'))
         self.client = MongoClient(mongo_host, mongo_port)
-        self.db = self.client['billy']
+        self.db = self.client[db_name]
         self.db.add_son_manipulator(ObjectIdToString())
 
         self.sources = {}

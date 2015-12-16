@@ -23,7 +23,7 @@ billy = {};
     billy.results = {};
     billy.playlists = {};
     billy.playlist_name = undefined;
-    billy.api_base = 'http://home.tribler-g.org:8000/api';
+    billy.api_base = 'http://musesync.ewi.tudelft.nl/api';
     billy.api_session = billy.api_base + '/session';
     billy.api_playlists = billy.api_base + '/playlists?token={0}&search={1}';
     billy.api_tracks = billy.api_base + '/tracks?query={0}&id={1}';

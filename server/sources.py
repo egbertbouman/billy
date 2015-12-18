@@ -64,7 +64,7 @@ class RSSSource(object):
             # Extract Youtube/Soundcloud id's from iframes in description
             try:
                 tree = lxml.html.fromstring(entry['description'])
-            except XMLSyntaxError:
+            except (XMLSyntaxError, KeyError):
                 tree = None
 
             if tree:
@@ -112,7 +112,8 @@ class YoutubeSource(object):
 
     def has_error(self, response_dict):
         if 'error' in response_dict:
-            print 'Error from Youtube', self.type, ':', response_dict['error']['message']
+            reason = response_dict['error']['errors'][0].get('reason', 'no reason given')
+            print 'Error from Youtube', self.type, ':', response_dict['error']['message'], ('(%s)' % reason)
             return True
         return False
 

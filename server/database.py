@@ -70,8 +70,12 @@ class Database(threading.Thread):
 
     def check_sources(self):
         count = 0
+        now = int(time.time())
 
         for source_id, source in self.sources.iteritems():
+            if now - source.last_check < SOURCES_CHECK_INTERVAL:
+                continue
+
             tracks = source.fetch(source.last_check)
             print source, len(tracks)
 
@@ -114,20 +118,21 @@ class Database(threading.Thread):
             if track['title'].count(' - ') == 1:
                 track['artist_name'], track['track_name'] = track['title'].split(' - ', 1)
 
-            # Get tags from last.fm
-            # Disabled, for now
-            if False and 'artist_name' in track:
-                params = {'method': 'track.gettoptags',
-                          'artist': track['artist_name'],
-                          'track': track['track_name'],
-                          'api_key': self.config.get('sources', 'lastfm_api_key'),
-                          'format': 'json',
-                          'limit': 20}
-                response = requests.get('https://ws.audioscrobbler.com/2.0', params=params).json()
-                top_tags = [item['name'] for item in response.get('toptags', {}).get('tag', []) if item['count'] > 20]
-            else:
-                top_tags = []
-            track['musicinfo'] = {'tags': {'vartags': top_tags}}
+            if 'musicinfo' not in track:
+                # Get tags from last.fm
+                # Disabled, for now
+                if False and 'artist_name' in track:
+                    params = {'method': 'track.gettoptags',
+                              'artist': track['artist_name'],
+                              'track': track['track_name'],
+                              'api_key': self.config.get('sources', 'lastfm_api_key'),
+                              'format': 'json',
+                              'limit': 20}
+                    response = requests.get('https://ws.audioscrobbler.com/2.0', params=params).json()
+                    top_tags = [item['name'] for item in response.get('toptags', {}).get('tag', []) if item['count'] > 20]
+                else:
+                    top_tags = []
+                track['musicinfo'] = {'tags': {'vartags': top_tags}}
 
             track_id = self.db.tracks.insert(track)
             if track_id:

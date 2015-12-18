@@ -30,7 +30,6 @@ billy = {};
     billy.api_recommend = billy.api_base + '/recommend?token={0}&name={1}';
     billy.api_clicklog = billy.api_base + '/clicklog?token={0}';
     billy.api_waveform = billy.api_base + '/waveform?id={0}';
-    billy.api_download = billy.api_base + '/download?id={0}';
 
 
 
@@ -709,6 +708,7 @@ billy = {};
                     link: val['link'],
                     image: val['image'],
                     musicinfo: val['musicinfo'],
+                    audiodownload: val['audiodownload'],
                     _id: val['_id']
                 };
                 self.results[val['_id']] = track;
@@ -738,7 +738,10 @@ billy = {};
     billy.load_from_server = function() {
         var self = this;
 
-        this.token = $.cookie('token');
+        var port = location.port || (location.protocol === 'https:' ? '443' : '80');
+        var cookie_name = 'token' + port;
+
+        this.token = $.cookie(cookie_name);
         if (this.token !== undefined) {
             // Load playlists from server and show them to the user
             $.getJSON(self.api_playlists.format(this.token, ''), function(data) {
@@ -755,7 +758,7 @@ billy = {};
         else {
             $.getJSON(self.api_session, function(data) {
                 self.token = data['token'];
-                $.cookie('token', self.token, {expires: 3650});
+                $.cookie(cookie_name, self.token, {expires: 3650});
                 self.create_playlist();
             })
         }
@@ -792,6 +795,12 @@ billy = {};
     billy.create_listitem = function(track, inPlaylist) {
         var item_html = '<li class="list-group-item shorten" data-track-id="' + track['_id'] + '">';
         var tags_html = this.create_tags_popover(track['musicinfo']);
+        var download_html;
+
+        if (track['audiodownload'] !== undefined)
+            download_html = '<a href="#" onclick="window.location = \'' + track['audiodownload'] + '\'" class="m-r-sm"><span class="glyphicon glyphicon-record"></span></a>';
+        else
+            download_html = '<a href="#" class="m-r-sm disable-click"><span class="glyphicon glyphicon-record"></span></a>';
 
         item_html += '<div class="pull-right m-l btn-group">';
 
@@ -799,13 +808,13 @@ billy = {};
             item_html += '<a href="#" data-action="pl_moveup"class="m-r-sm"><span class="glyphicon glyphicon-circle-arrow-up"></span></a>';
             item_html += '<a href="#" data-action="pl_movedown"class="m-r-sm"><span class="glyphicon glyphicon-circle-arrow-down"></span></a>';
             item_html += '<a href="#" data-toggle="popover" data-placement="bottom" tabindex="0" data-trigger="focus" title="Tags" data-content="' + tags_html + '" class="m-r-sm"><span class="glyphicon glyphicon-info-sign"></span></a>';
-            item_html += '<a href="#" onclick="window.location = \'' + billy.api_download.format(track.id) + '\'" class="m-r-sm"><span class="glyphicon glyphicon-record"></span></a>';
+            item_html += download_html;
             item_html += '<a href="#" data-action="pl_play" class="m-r-sm"><span class="glyphicon glyphicon-play-circle"></span></a>';
             item_html += '<a href="#" data-action="pl_remove" class="m-r-sm"><span class="glyphicon glyphicon-remove-circle"></span></a>';
         }
         else {
             item_html += '<a href="#" data-toggle="popover" data-placement="bottom" tabindex="0" data-trigger="focus" title="Tags" data-content="' + tags_html + '" class="m-r-sm"><span class="glyphicon glyphicon-info-sign"></span></a>';
-            item_html += '<a href="#" onclick="window.location = \'' + this.api_download.format(track['_id']) + '\'" class="m-r-sm"><span class="glyphicon glyphicon-record"></span></a>';
+            item_html += download_html;
             item_html += '<a href="#" data-action="play" class="m-r-sm"><span class="glyphicon glyphicon-play-circle"></span></a>';
             item_html += '<a href="#" data-action="add" class="m-r-sm"><span class="glyphicon glyphicon-remove-circle rotate-45"></span></a>';
         }

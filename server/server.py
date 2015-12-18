@@ -148,14 +148,6 @@ class API(object):
 
         return {'waveform': waveform['waveform']}
 
-    @cherrypy.expose
-    @cherrypy.tools.json_out()
-    def download(self, id, **kwargs):
-        if self.database.get_track(id) is None:
-            return self.error('track does not exist', 404)
-
-        raise cherrypy.HTTPRedirect('http://storage.jamendo.com/download/track/{id}/mp32/'.format(id=id))
-
 
 class StaticContent(object):
 

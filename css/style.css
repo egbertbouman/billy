@@ -202,3 +202,7 @@ span.rollover:hover {
     -o-transition: none;
     transition: none;
 }
+.disable-click {
+    pointer-events: none;
+    color: #888 !important;
+}

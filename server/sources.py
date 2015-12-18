@@ -10,6 +10,7 @@ import dateutil.tz
 from datetime import datetime
 from dateutil.parser import parse
 from lxml.cssselect import CSSSelector
+from lxml.etree import XMLSyntaxError
 from urlparse import urlparse, parse_qs
 
 feedparser._HTMLSanitizer.acceptable_elements.update(['iframe'])
@@ -44,8 +45,9 @@ def extract_soundcloud_id(url):
 
 class RSSSource(object):
 
-    def __init__(self, url):
+    def __init__(self, url, last_check=0):
         self.url = url
+        self.last_check = last_check
 
     def fetch(self, since=0):
         results = []
@@ -53,28 +55,33 @@ class RSSSource(object):
         feed = feedparser.parse(self.url)
 
         for entry in feed.get('entries', []):
-            epoch_time = int(time.mktime(entry['published_parsed']))
+            epoch_time = int(time.mktime(entry['published_parsed'])) if 'published_parsed' in entry else -1
             if epoch_time < since:
                 continue
 
             links = [link['href'] for link in entry['links'] if link['type'] == 'audio/mpeg']
 
             # Extract Youtube/Soundcloud id's from iframes in description
-            tree = lxml.html.fromstring(entry['description'])
-            iframe_sel = CSSSelector('iframe')
-            for iframe in iframe_sel(tree):
-                url = iframe.get('src')
-                url_split = url.split('/')
+            try:
+                tree = lxml.html.fromstring(entry['description'])
+            except XMLSyntaxError:
+                tree = None
 
-                if url_split[2].endswith('youtube.com'):
-                    youtube_id = extract_youtube_id(url)
-                    if youtube_id:
-                        links.append('youtube:' + youtube_id)
+            if tree:
+                iframe_sel = CSSSelector('iframe')
+                for iframe in iframe_sel(tree):
+                    url = iframe.get('src')
+                    url_split = url.split('/')
 
-                elif url_split[2].endswith('soundcloud.com'):
-                    soundcloud_id = extract_soundcloud_id(url)
-                    if soundcloud_id:
-                        links.append('soundcloud:' + soundcloud_id)
+                    if url_split[2].endswith('youtube.com'):
+                        youtube_id = extract_youtube_id(url)
+                        if youtube_id:
+                            links.append('youtube:' + youtube_id)
+
+                    elif url_split[2].endswith('soundcloud.com'):
+                        soundcloud_id = extract_soundcloud_id(url)
+                        if soundcloud_id:
+                            links.append('soundcloud:' + soundcloud_id)
 
             for link in links:
                 print entry['title']
@@ -87,6 +94,8 @@ class RSSSource(object):
 
                 results.append(item)
 
+        self.last_check = int(time.time())
+
         return results
 
 
@@ -95,10 +104,11 @@ class YoutubeSource(object):
     YOUTUBE_CHANNEL_URL = 'https://www.googleapis.com/youtube/v3/search?key={api_key}&channelId={id}&part=snippet&order=date&type=video&publishedBefore={before}&publishedAfter={after}&pageToken={token}&maxResults=50'
     YOUTUBE_PLAYLIST_URL = 'https://www.googleapis.com/youtube/v3/playlistItems?key={api_key}&playlistId={id}&part=snippet&pageToken={token}&maxResults=50'
 
-    def __init__(self, type, id, api_key):
+    def __init__(self, type, id, api_key, last_check=0):
         self.type = type
         self.id = id
         self.api_key = api_key
+        self.last_check = last_check
 
     def has_error(self, response_dict):
         if 'error' in response_dict:
@@ -107,10 +117,15 @@ class YoutubeSource(object):
         return False
 
     def fetch(self, since=0):
+        results = None
         if self.type == 'channel':
-            return self._fetch_channel(since)
+            results = self._fetch_channel(since)
         elif self.type == 'playlist':
-            return self._fetch_playlist(since)
+            results = self._fetch_playlist(since)
+
+        if results is not None:
+            self.last_check = int(time.time())
+            return results
 
     def _fetch_channel(self, since=0):
         results = []

@@ -38,8 +38,6 @@ class Database(threading.Thread):
         self.sources = {}
         self.load_sources()
 
-        self.last_check = 0
-
         self.setDaemon(True)
 
     def add_source(self, source):
@@ -51,22 +49,30 @@ class Database(threading.Thread):
             self.sources[id] = self.create_source(source)
 
     def create_source(self, source_dict):
+        if not 'site' in source_dict or not 'type' in source_dict:
+            return
+
+        last_check = source_dict.get('last_check', 0)
         if source_dict['site'] == 'youtube':
-            return YoutubeSource(source_dict['type'], source_dict['data'], self.config.get('sources', 'youtube_api_key'))
+            return YoutubeSource(source_dict['type'], source_dict['data'], self.config.get('sources', 'youtube_api_key'), last_check)
         elif source_dict['type'] == 'rss':
-            return RSSSource(source_dict['data'])
+            return RSSSource(source_dict['data'], last_check)
 
     def load_sources(self):
         sources = list(self.db.sources.find({}))
 
         for source_dict in sources:
-            self.sources[source_dict['_id']] = self.create_source(source_dict)
+            source = self.create_source(source_dict)
+            if source is None:
+                print 'Incorrect source found in database, skipping'
+            else:
+                self.sources[source_dict['_id']] = source
 
     def check_sources(self):
         count = 0
 
         for source_id, source in self.sources.iteritems():
-            tracks = source.fetch(self.last_check)
+            tracks = source.fetch(source.last_check)
             print source, len(tracks)
 
             for track in tracks:
@@ -75,7 +81,7 @@ class Database(threading.Thread):
                 if track_id:
                     count += 1
 
-        self.last_check = int(time.time())
+            self.db.sources.update({'_id': source_id}, {'last_check': source.last_check})
 
         return count
 
@@ -109,7 +115,8 @@ class Database(threading.Thread):
                 track['artist_name'], track['track_name'] = track['title'].split(' - ', 1)
 
             # Get tags from last.fm
-            if 'artist_name' in track:
+            # Disabled, for now
+            if False and 'artist_name' in track:
                 params = {'method': 'track.gettoptags',
                           'artist': track['artist_name'],
                           'track': track['track_name'],

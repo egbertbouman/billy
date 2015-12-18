@@ -173,6 +173,7 @@ def main(argv):
         parser.add_argument('-s', '--sources', help='JSON formatted sources to be imported into the database', required=False)
         parser.add_argument('-u', '--users', help='JSON formatted admin users to be imported into the database', required=False)
         parser.add_argument('-d', '--dir', help='Directory with static content (served from http://server/billy)', required=False)
+        parser.add_argument('-i', '--index', help='Directory with the search index (default: data/index)', required=False)
         parser.add_argument('-n', '--dbname', help='Name of the MongoDB database (default: billy)', required=False)
         parser.add_help = True
         args = parser.parse_args(sys.argv[1:])
@@ -188,7 +189,7 @@ def main(argv):
     config = ConfigParser.ConfigParser()
     config.read(os.path.join(CURRENT_DIR, 'billy.cfg'))
 
-    search = Search(os.path.join(CURRENT_DIR, 'data', 'index'))
+    search = Search(args.index or (os.path.join(CURRENT_DIR, 'data', 'index')))
 
     db = Database(config, (args.dbname or 'billy'), search.index)
 

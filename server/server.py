@@ -97,7 +97,7 @@ class API(object):
         if playlist is None:
             return self.error('cannot find playlist', 404)
 
-        results = self.search.recommend(playlist['tracks'])
+        results = self.search.recommend(playlist)
 
         if results is None:
             results = self.database.get_random_tracks(20)

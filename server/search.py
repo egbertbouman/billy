@@ -108,7 +108,9 @@ class Search(object):
         return json.loads('[%s]' % ', '.join(result))
 
 
-    def recommend(self, song_set):
+    def recommend(self, playlist):
+        song_set = playlist['tracks']
+
         if len(song_set) > 0:
             song_set_ids = [song['_id'] for song in song_set]
             frequent_terms_in_set = getFrequentTerms(song_set)
@@ -123,6 +125,11 @@ class Search(object):
 
             if len(filtered_search_results) > 0:
                 return filtered_search_results
+
+        # Return recommendations based on playlist name + description
+        query = playlist['name'] + ' ' + playlist['description']
+        print 'querying dataset for "%s"' % query
+        return self.search(query)
 
 
 def getFrequentTerms(music_json_data, num_suggestions=20, exclude_terms=[''], alternative_spelling_dict={}):

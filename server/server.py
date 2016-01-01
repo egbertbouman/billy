@@ -25,8 +25,8 @@ class API(object):
         self.database = database
         self.search = search
 
-    def get_session(self, token):
-        return self.database.get_session(token)
+    def get_session(self, token, resolve_tracks=True):
+        return self.database.get_session(token, resolve_tracks)
 
     def error(self, message, status_code):
         cherrypy.response.status = status_code
@@ -57,13 +57,32 @@ class API(object):
                 return self.error('cannot find session', 404)
 
             if cherrypy.request.method == 'GET':
+                playlists = session['playlists']
                 return session['playlists']
 
             elif cherrypy.request.method == 'POST':
                 length = int(cherrypy.request.headers['Content-Length'])
                 body = cherrypy.request.body.read(length)
-                json_body = json.loads(body)
-                self.database.update_session(token, json_body)
+
+                playlists_new = json.loads(body)
+                print playlists_new.values()[0]
+                tracks_new = set((p['name'], track_id) for p in playlists_new.values() for track_id in p['tracks'])
+
+                playlists_old = session['playlists']
+                tracks_old = set((p['name'], t['_id']) for p in playlists_old.values() for t in p['tracks'])
+
+                tracks_added = tracks_new - tracks_old
+                tracks_removed = tracks_old - tracks_new
+
+                for playlist_name, track_id in tracks_added:
+                    for function in playlists_new[playlist_name].get('functions', []):
+                        self.database.update_function_counter(track_id, function, 1)
+
+                for playlist_name, track_id in tracks_removed:
+                    for function in playlists_old[playlist_name].get('functions', []):
+                        self.database.update_function_counter(track_id, function, -1)
+
+                self.database.update_session(token, playlists_new)
                 return {}
         else:
             if cherrypy.request.method == 'GET':
@@ -126,7 +145,7 @@ class API(object):
             return clicklog
 
         elif cherrypy.request.method == 'POST':
-            session = self.get_session(token)
+            session = self.get_session(token, resolve_tracks=False)
             if session is None:
                 return self.error('cannot find session', 404)
 
@@ -191,8 +210,9 @@ def main(argv):
     config = ConfigParser.ConfigParser()
     config.read(os.path.join(CURRENT_DIR, 'billy.conf'))
 
-    search = Search(args.index or (os.path.join(CURRENT_DIR, 'data', 'index')))
-    db = Database(config, (args.dbname or 'billy'), search.index)
+    db = Database(config, (args.dbname or 'billy'))
+    search = Search(db, args.index or (os.path.join(CURRENT_DIR, 'data', 'index')))
+    db.set_track_callback(search.index)
 
     # Import tracks
     if args.tracks:

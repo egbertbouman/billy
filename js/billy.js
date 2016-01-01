@@ -620,7 +620,7 @@ billy = {};
         saveAs(blob, "playlists.json");
     }
 
-    billy.create_playlist = function(name, description) {
+    billy.create_playlist = function(name, description, functions) {
         if (name === undefined) {
             $('#new-playlist-modal').modal('show');
             return;
@@ -628,7 +628,7 @@ billy = {};
         var tab = $('<li role="presentation"><a href="#" onclick="billy.change_playlist(\'' + name + '\');">' + name + '</a></li>').appendTo($('#playlist-tabs'));
         if (Object.keys(this.playlists).length == 0)
             tab.tab('show');
-        this.playlists[name] = {name: name, description: description, tracks: []};
+        this.playlists[name] = {name: name, description: description, tracks: [], functions: functions};
         this.change_playlist(name);
         this.save_to_server();
     }
@@ -779,13 +779,26 @@ billy = {};
     billy.save_to_server = function() {
         var self = this;
 
+        var playlists = jQuery.extend(true, {}, this.get_playlists());
+
+        Object.keys(playlists).forEach(function (name) {
+            var playlist = playlists[name];
+            var track_ids = [];
+            playlist['tracks'].forEach(function (track) {
+                track_ids.push(track['_id']);
+            });
+            playlist['tracks'] = track_ids;
+        });
+
+        var data = JSON.stringify(playlists);
+
         // Store playlists in remote database
         $.ajax({
             type: 'POST',
             url: this.api_playlists.format(this.token, ''),
             contentType: "application/json",
             processData: false,
-            data: JSON.stringify(this.get_playlists()),
+            data: data,
             success: function() { self.recommend() },
             error: function() { bootbox.alert('Failed to contact Billy server') },
             dataType: "text"
@@ -819,13 +832,13 @@ billy = {};
         if (inPlaylist) {
             item_html += '<a href="#" data-action="pl_moveup"class="m-r-sm"><span class="glyphicon glyphicon-circle-arrow-up"></span></a>';
             item_html += '<a href="#" data-action="pl_movedown"class="m-r-sm"><span class="glyphicon glyphicon-circle-arrow-down"></span></a>';
-            item_html += '<a href="#" data-toggle="popover" data-placement="bottom" tabindex="0" data-trigger="focus" title="Tags" data-content="' + tags_html + '" class="m-r-sm"><span class="glyphicon glyphicon-info-sign"></span></a>';
+            item_html += '<a href="#" data-toggle="popover" data-placement="bottom" tabindex="0" data-trigger="focus" title="Music info" data-content="' + tags_html + '" class="m-r-sm"><span class="glyphicon glyphicon-info-sign"></span></a>';
             item_html += download_html;
             item_html += '<a href="#" data-action="pl_play" class="m-r-sm"><span class="glyphicon glyphicon-play-circle"></span></a>';
             item_html += '<a href="#" data-action="pl_remove" class="m-r-sm"><span class="glyphicon glyphicon-remove-circle"></span></a>';
         }
         else {
-            item_html += '<a href="#" data-toggle="popover" data-placement="bottom" tabindex="0" data-trigger="focus" title="Tags" data-content="' + tags_html + '" class="m-r-sm"><span class="glyphicon glyphicon-info-sign"></span></a>';
+            item_html += '<a href="#" data-toggle="popover" data-placement="bottom" tabindex="0" data-trigger="focus" title="Music info" data-content="' + tags_html + '" class="m-r-sm"><span class="glyphicon glyphicon-info-sign"></span></a>';
             item_html += download_html;
             item_html += '<a href="#" data-action="play" class="m-r-sm"><span class="glyphicon glyphicon-play-circle"></span></a>';
             item_html += '<a href="#" data-action="add" class="m-r-sm"><span class="glyphicon glyphicon-remove-circle rotate-45"></span></a>';
@@ -968,6 +981,15 @@ billy = {};
         musicinfo['tags']['vartags'].forEach(function (tag) {
             tags_html += "<span class='label label-primary'>" + tag + "</span>";
         });
+
+        if ('functions' in musicinfo) {
+            tags_html += "</td></tr><tr><td>Functions:</td><td>";
+
+            Object.keys(musicinfo['functions']).forEach(function (name) {
+                var count = musicinfo['functions'][name];
+                tags_html += "<span class='label label-warning'>" + name + " (" + count + ")</span>";
+            });
+        }
 
         tags_html += "</td></tr></div>";
 

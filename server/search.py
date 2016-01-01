@@ -26,16 +26,17 @@ lucene.initVM()
 
 class Search(object):
 
-    def __init__(self, index_dir, alternative_spelling_dict={}):
+    def __init__(self, db, index_dir, alternative_spelling_dict={}):
         self.logger = logging.getLogger(__name__)
 
+        self.database = db
         self.index_dir = index_dir
         self.alternative_spelling_dict = alternative_spelling_dict
         self.analyzer = StandardAnalyzer(Version.LUCENE_CURRENT)
 
     def index(self, music_json_data):
         # Builds Lucene index for given dataset.
-        # Currently, we will just stack info from multiple metadata together as 'documents' (see getIndexTerms), and consider the raw json as 'keys'.
+        # Currently, we will just stack info from multiple metadata together as 'documents' (see getIndexTerms), and consider the track_id as 'keys'.
         # Alternative spellings are optional.        
         if not os.path.exists(self.index_dir):
             os.makedirs(self.index_dir)
@@ -69,10 +70,10 @@ class Search(object):
 
             if not LUCENE3:
                 doc.add(Field("index_terms", index_terms, index_terms_field))
-                doc.add(Field("json", json.dumps(song), key_field))
+                doc.add(Field("track_id", song['_id'], key_field))
             else:
                 field1 = Field("index_terms", index_terms, Field.Store.NO, Field.Index.ANALYZED)
-                field2 = Field("json", json.dumps(song), Field.Store.YES, Field.Index.NO)
+                field2 = Field("track_id", song['_id'], Field.Store.YES, Field.Index.NO)
                 field2.setIndexOptions(FieldInfo.IndexOptions.DOCS_AND_FREQS)
 
                 doc.add(field1)
@@ -100,13 +101,13 @@ class Search(object):
 
         for search_result in search_results:
             document = searcher.doc(search_result.doc)
-            result.append(document.get("json"))
+            track_id = document.get("track_id")
+            result.append(self.database.get_track(track_id))
 
         dir.close()
 
         # The result to be returned is a list of JSON dictionaries (one per song)
-        return json.loads('[%s]' % ', '.join(result))
-
+        return result
 
     def recommend(self, playlist):
         song_set = playlist['tracks']

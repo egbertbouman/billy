@@ -147,12 +147,33 @@
                   <form action="" role="form" data-toggle="validator" id="new-playlist-form">
                     <div class="form-group">
                         <label for="playlist-name" class="control-label">Name</label>
-                      <input type="text" id="playlist-name" class="form-control" placeholder="Please enter a name which does not match any of your existing playlist names." required>
-                      <div class="help-block with-errors"></div>
+                        <input type="text" id="playlist-name" class="form-control" placeholder="Please enter a name which does not match any of your existing playlist names." required>
+                        <div class="help-block with-errors"></div>
                     </div>
                     <div class="form-group">
                         <label for="playlist-description" class="control-label">Purpose</label>
-                      <textarea id="playlist-description" class="form-control" rows="3"  placeholder="For what purpose would you like to use this playlist? Please enter a short description here."  required></textarea>
+                        <textarea id="playlist-description" class="form-control" rows="3"  placeholder="For what purpose would you like to use this playlist? Please enter a short description here."  required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label">Function</label>
+                        <div class="checkbox">
+                           <label>
+                               <input type="checkbox" name="playlist-function" value="background">
+                               Music as background
+                           </label>
+                        </div>
+                        <div class="checkbox">
+                           <label>
+                               <input type="checkbox" name="playlist-function" value="foreground">
+                               Music as foreground
+                           </label>
+                        </div>
+                        <div class="checkbox">
+                           <label>
+                               <input type="checkbox" name="playlist-function" value="action">
+                               Music as action
+                           </label>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -238,12 +259,15 @@
         if (!evt.isDefaultPrevented()) {
           var name = $('#playlist-name').val();
           var description = $('#playlist-description').val();
+          var functions = [];
+          $('input[name="playlist-function"]:checked').each(function() { functions.push($(this).val()) });
+
           // TODO: use form validation for handling duplicate playlist names
           if (name in billy.playlists) {
             bootbox.alert('You already have a playlist called \'' + name + '\'. Please enter a unique name.');
           }
           else {
-            billy.create_playlist(name, description);
+            billy.create_playlist(name, description, functions);
             $('#new-playlist-modal').modal('hide');
             $('#new-playlist-modal').find('form')[0].reset();
           }

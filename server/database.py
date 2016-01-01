@@ -25,13 +25,13 @@ class ObjectIdToString(SONManipulator):
 
 class Database(threading.Thread):
 
-    def __init__(self, config, db_name, add_track_cb):
+    def __init__(self, config, db_name):
         threading.Thread.__init__(self)
 
         self.logger = logging.getLogger(__name__)
 
         self.config = config
-        self.add_track_cb = add_track_cb
+        self.add_track_cb = None
 
         mongo_host = self.config.get('database', 'mongo_host')
         mongo_port = int(self.config.get('database', 'mongo_port'))
@@ -48,6 +48,9 @@ class Database(threading.Thread):
         for track in self.db.tracks.find({}):
             link_type = track['link'].split(':')[0]
             self.info['num_tracks'][link_type] = self.info['num_tracks'].get(link_type, 0) + 1
+
+    def set_track_callback(self, cb):
+        self.add_track_cb = cb
 
     def add_source(self, source):
         # Add to database
@@ -109,9 +112,16 @@ class Database(threading.Thread):
             self.logger.info('Finished checking sources. Got %d new track(s)', count)
             time.sleep(SOURCES_CHECK_INTERVAL)
 
-    def get_session(self, token):
+    def get_session(self, token, resolve_tracks=True):
         sessions = list(self.db.sessions.find({'_id': token}).limit(1))
-        return sessions[0] if sessions else None
+        session = sessions[0] if sessions else None
+        if resolve_tracks and session and 'playlists' in session:
+            for playlist in session['playlists'].values():
+                tracks = []
+                for track_id in playlist['tracks']:
+                    tracks.append(self.get_track(track_id))
+                playlist['tracks'] = tracks
+        return session
 
     def create_session(self):
         # Generate a token while avoiding collisions
@@ -155,7 +165,8 @@ class Database(threading.Thread):
                 self.info['num_tracks'][link_type] = self.info['num_tracks'].get(link_type, 0) + 1
 
                 track['_id'] = track_id
-                self.add_track_cb(track)
+                if self.add_track_cb is not None:
+                    self.add_track_cb(track)
                 return track_id
         return False
 
@@ -170,6 +181,13 @@ class Database(threading.Thread):
             track = list(self.db.tracks.find().limit(-1).skip(skip))[0]
             tracks.append(track)
         return tracks
+
+    def update_function_counter(self, track_id, function, delta):
+        track = self.get_track(track_id)
+        musicinfo = track['musicinfo']
+        musicinfo['functions'] = musicinfo.get('functions', {})
+        musicinfo['functions'][function] = musicinfo['functions'].get(function, 0) + delta
+        self.db.tracks.update({'_id': track_id}, {'$set': {'musicinfo': musicinfo}})
 
     def add_clicklog(self, clicklog):
         return self.db.clicklog.insert(clicklog)

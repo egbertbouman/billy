@@ -593,7 +593,6 @@ billy = {};
         if (this.playlist_name === undefined) {
             this.change_playlist(Object.keys(this.playlists)[0]);
         }
-        this.save_to_server();
         return skipped;
     }
 
@@ -608,6 +607,7 @@ billy = {};
     billy.import_json = function(json_string) {
         playlists = JSON.parse(json_string);
         var skipped = this.add_playlists(playlists);
+        this.save_to_server();
         if (skipped.length > 0) {
             bootbox.alert('You already have playlist(s) with the following name(s): ' + skipped.join(', ') + '. Since playlist names have to be unique, these will not be imported.');
         }
@@ -866,14 +866,21 @@ billy = {};
             else if (action.startsWith('pl_')) {
                 var index = $(this).parents('.list-group-item').index();
 
-                if (action === 'pl_play')
+                if (action === 'pl_play') {
                     self.playlist.play(index);
-                else if (action === 'pl_remove')
+                }
+                else if (action === 'pl_remove') {
                     self.playlist.remove(index);
-                else if (action === 'pl_moveup')
+                    self.save_to_server();
+                }
+                else if (action === 'pl_moveup') {
                     self.playlist.reposition(index, 1);
-                else if (action === 'pl_movedown')
+                    self.save_to_server();
+                }
+                else if (action === 'pl_movedown') {
                     self.playlist.reposition(index, -1);
+                    self.save_to_server();
+                }
             }
             else {
                 var track_id = $(this).parents('.list-group-item').data('track-id')

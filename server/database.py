@@ -85,7 +85,7 @@ class Database(threading.Thread):
                 if track_id:
                     count += 1
 
-            self.db.sources.update({'_id': source_id}, {'last_check': source.last_check})
+            self.db.sources.update({'_id': source_id}, {'$set': {'last_check': source.last_check}})
 
         return count
 

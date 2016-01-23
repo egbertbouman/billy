@@ -488,6 +488,13 @@ billy = {};
         $(window).resize(function() {
             self.set_waveform(self.player.track._id);
         });
+        $('.navbar-link').mousedown(function(evt) {
+            var el = $(this);
+            $.get(el.data('load'), function(data) {
+                var html = self.create_status_popover(data);
+                el.popover({html: true, content: html, container: 'body'}).popover('show');
+            });
+        });
 
 
         // Player event handlers
@@ -800,7 +807,7 @@ billy = {};
         if (track['audiodownload'] !== undefined)
             download_html = '<a href="#" onclick="window.location = \'' + track['audiodownload'] + '\'" class="m-r-sm"><span class="glyphicon glyphicon-record"></span></a>';
         else
-            download_html = '<a href="#" class="m-r-sm disable-click"><span class="glyphicon glyphicon-record"></span></a>';
+            download_html = '';//'<a href="#" class="m-r-sm disable-click"><span class="glyphicon glyphicon-record"></span></a>';
 
         item_html += '<div class="pull-right m-l btn-group">';
 
@@ -926,7 +933,7 @@ billy = {};
     }
 
     billy.create_tags_popover = function(musicinfo) {
-        tags_html = "<div class='tags-container'>" +
+        tags_html = "<div class='popover-container'>" +
                     "<table><tr><td>Genres:</td><td>";
 
         if (musicinfo['tags']['genres'].length == 0) {
@@ -960,6 +967,33 @@ billy = {};
         tags_html += "</td></tr></div>";
 
         return tags_html;
+    }
+
+    billy.create_status_popover = function(data) {
+        var html = '<div class="popover-container"><table>';
+
+        html += '<tr><td>status</td><td></td><td>';
+        if (data['info']['status'] === 'idle')
+            html += "<span class='label label-success'>idle</span>";
+        else
+            html += "<span class='label label-warning'>" + data['info']['status'] + "</span>";
+        html += '</td></tr>';
+
+        html += '<tr><td>#sources</td><td></td><td>' + data['info']['num_sources'] + '</td></tr>';
+        html += '<tr><td>#sessions</td><td></td><td>' + data['info']['num_sessions'] + '</td></tr>';
+
+        var total = 0;
+        var tracks_html = '';
+        var num_tracks = data['info']['num_tracks'];
+        Object.keys(num_tracks).forEach(function(key, index) {
+            tracks_html += '<tr><td></td><td>' + key + '</td><td>' + num_tracks[key] + '</td></tr>';
+            total += num_tracks[key];
+        });
+
+        html += '<tr><td>#tracks</td><td>total</td><td>' + total + '</td></tr>' + tracks_html;
+        html += '</table></div>';
+
+        return html;
     }
 
     billy.set_waveform = function(track_id, force) {

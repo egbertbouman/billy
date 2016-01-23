@@ -148,6 +148,11 @@ class API(object):
 
         return {'waveform': waveform['waveform']}
 
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def info(self, **kwargs):
+        return {'info': self.database.get_info()}
+
 
 class StaticContent(object):
 

@@ -1,5 +1,6 @@
 import os
 import sys
+import copy
 import json
 import time
 import random
@@ -40,6 +41,11 @@ class Database(threading.Thread):
 
         self.setDaemon(True)
 
+        self.info = {'num_tracks': {}, 'status': 'idle'}
+        for track in self.db.tracks.find({}):
+            link_type = track['link'].split(':')[0]
+            self.info['num_tracks'][link_type] = self.info['num_tracks'].get(link_type, 0) + 1
+
     def add_source(self, source):
         # Add to database
         if not list(self.db.sources.find(source).limit(1)):
@@ -72,6 +78,8 @@ class Database(threading.Thread):
         count = 0
         now = int(time.time())
 
+        self.info['status'] = 'checking'
+
         for source_id, source in self.sources.iteritems():
             if now - source.last_check < SOURCES_CHECK_INTERVAL:
                 continue
@@ -86,6 +94,8 @@ class Database(threading.Thread):
                     count += 1
 
             self.db.sources.update({'_id': source_id}, {'$set': {'last_check': source.last_check}})
+
+        self.info['status'] = 'idle'
 
         return count
 
@@ -136,6 +146,10 @@ class Database(threading.Thread):
 
             track_id = self.db.tracks.insert(track)
             if track_id:
+                # Update db stats
+                link_type = track['link'].split(':')[0]
+                self.info['num_tracks'][link_type] = self.info['num_tracks'].get(link_type, 0) + 1
+
                 track['_id'] = track_id
                 self.add_track_cb(track)
                 return track_id
@@ -181,3 +195,11 @@ class Database(threading.Thread):
     def get_waveform(self, track_id):
         waveforms = list(self.db.waveforms.find({'_id': track_id}))
         return waveforms[0] if waveforms else None
+
+    def get_info(self):
+        info = copy.deepcopy(self.info)
+
+        info['num_sources'] = self.db.sources.count()
+        info['num_sessions'] = self.db.sessions.count()
+
+        return info

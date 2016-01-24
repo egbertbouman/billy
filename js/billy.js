@@ -492,8 +492,13 @@ billy = {};
             var el = $(this);
             $.get(el.data('load'), function(data) {
                 var html = self.create_status_popover(data);
-                el.popover({html: true, content: html, container: 'body'}).popover('show');
+                el.attr('data-content', html);
+                el.popover({html: true, content: html}).popover('show');
             });
+        });
+        $('.navbar-link').on('click', function(evt) {
+            evt.preventDefault();
+            return true;
         });
 
 

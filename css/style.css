@@ -140,6 +140,13 @@ body {
 .popover {
     max-width: none;
 }
+.popover-title {
+    background: #f7f7f7;
+    color: #333;
+}
+.popover-container {
+    color: #000;
+}
 .popover-container td {
     padding: 0px 10px;
 }

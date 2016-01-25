@@ -187,7 +187,6 @@ def main(argv):
     config.read(os.path.join(CURRENT_DIR, 'billy.cfg'))
 
     search = Search(args.index or (os.path.join(CURRENT_DIR, 'data', 'index')))
-
     db = Database(config, (args.dbname or 'billy'), search.index)
 
     # Import tracks

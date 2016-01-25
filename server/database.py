@@ -60,9 +60,9 @@ class Database(threading.Thread):
 
         last_check = source_dict.get('last_check', 0)
         if source_dict['site'] == 'youtube':
-            return YoutubeSource(source_dict['type'], source_dict['data'], self.config.get('sources', 'youtube_api_key'), last_check)
+            return YoutubeSource(source_dict['type'], source_dict['data'], self.config, last_check)
         elif source_dict['type'] == 'rss':
-            return RSSSource(source_dict['data'], last_check)
+            return RSSSource(source_dict['data'], self.config, last_check)
 
     def load_sources(self):
         sources = list(self.db.sources.find({}))

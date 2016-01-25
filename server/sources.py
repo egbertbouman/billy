@@ -1,6 +1,7 @@
 import re
 import json
 import time
+import urllib
 import datetime
 import requests
 import lxml.html
@@ -14,6 +15,10 @@ from lxml.etree import XMLSyntaxError
 from urlparse import urlparse, parse_qs
 
 feedparser._HTMLSanitizer.acceptable_elements.update(['iframe'])
+
+YOUTUBE_CHANNEL_URL = 'https://www.googleapis.com/youtube/v3/search?key={api_key}&channelId={id}&part=snippet&order=date&type=video&publishedBefore={before}&publishedAfter={after}&pageToken={token}&maxResults=50'
+YOUTUBE_PLAYLIST_URL = 'https://www.googleapis.com/youtube/v3/playlistItems?key={api_key}&playlistId={id}&part=snippet&pageToken={token}&maxResults=50'
+SOUNDCLOUD_RESOLVE_URL = 'https://api.soundcloud.com/resolve.json?url={url}&client_id={api_key}'
 
 
 def ts_to_rfc3339(ts):
@@ -38,15 +43,30 @@ def extract_youtube_id(url):
 
 
 def extract_soundcloud_id(url):
-    index = url.find('/tracks/')
-    if index > 0:
-        return re.findall(r'\d+', url[index + 8:])[0]
+    urls = [url, urllib.unquote(url)]
+    for url in urls:
+        index = url.find('/tracks/')
+        if index > 0:
+            return re.findall(r'\d+', url[index + 8:])[0]
+
+
+def request_soundcloud_id(url, api_key):
+    response = requests.get(SOUNDCLOUD_RESOLVE_URL.format(url=url, api_key=api_key))
+    if response.status_code == 200:
+        try:
+            response_dict = response.json()
+        except ValueError:
+            print 'Error: could not get soundcloud id for:', url
+        else:
+            if response_dict.get('kind', '') == 'track':
+                return response_dict['id']
 
 
 class RSSSource(object):
 
-    def __init__(self, url, last_check=0):
+    def __init__(self, url, config, last_check=0):
         self.url = url
+        self.config = config
         self.last_check = last_check
 
     def fetch(self, since=0):
@@ -79,7 +99,8 @@ class RSSSource(object):
                             links.append('youtube:' + youtube_id)
 
                     elif url_split[2].endswith('soundcloud.com'):
-                        soundcloud_id = extract_soundcloud_id(url)
+                        api_key = self.config.get('sources', 'soundcloud_api_key')
+                        soundcloud_id = extract_soundcloud_id(url) or request_soundcloud_id(url, api_key)
                         if soundcloud_id:
                             links.append('soundcloud:' + soundcloud_id)
 
@@ -98,16 +119,16 @@ class RSSSource(object):
 
         return results
 
+    def __str__(self):
+        return "RSSSource_%s" % self.url
+
 
 class YoutubeSource(object):
 
-    YOUTUBE_CHANNEL_URL = 'https://www.googleapis.com/youtube/v3/search?key={api_key}&channelId={id}&part=snippet&order=date&type=video&publishedBefore={before}&publishedAfter={after}&pageToken={token}&maxResults=50'
-    YOUTUBE_PLAYLIST_URL = 'https://www.googleapis.com/youtube/v3/playlistItems?key={api_key}&playlistId={id}&part=snippet&pageToken={token}&maxResults=50'
-
-    def __init__(self, type, id, api_key, last_check=0):
+    def __init__(self, type, id, config, last_check=0):
         self.type = type
         self.id = id
-        self.api_key = api_key
+        self.config = config
         self.last_check = last_check
 
     def has_error(self, response_dict):
@@ -134,9 +155,10 @@ class YoutubeSource(object):
         published_before = ts_to_rfc3339(time.time())
         published_after = ts_to_rfc3339(since)
         page_token = ''
+        api_key = self.config.get('sources', 'youtube_api_key')
 
         while page_token is not None:
-            url = self.YOUTUBE_CHANNEL_URL.format(api_key=self.api_key, id=self.id, before=published_before, after=published_after, token=page_token)
+            url = YOUTUBE_CHANNEL_URL.format(api_key=api_key, id=self.id, before=published_before, after=published_after, token=page_token)
             response = requests.get(url)
             response_dict = response.json()
 
@@ -166,9 +188,10 @@ class YoutubeSource(object):
         results = []
 
         page_token = ''
+        api_key = self.config.get('sources', 'youtube_api_key')
 
         while page_token is not None:
-            url = self.YOUTUBE_PLAYLIST_URL.format(api_key=self.api_key, id=self.id, token=page_token)
+            url = YOUTUBE_PLAYLIST_URL.format(api_key=api_key, id=self.id, token=page_token)
             response = requests.get(url)
             response_dict = response.json()
 
@@ -188,3 +211,6 @@ class YoutubeSource(object):
             page_token = response_dict.get('nextPageToken', None)
 
         return results
+
+    def __str__(self):
+        return "YoutubeSource_%s_%s" % (self.type, self.id)

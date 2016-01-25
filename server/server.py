@@ -9,6 +9,8 @@ import requests
 import cherrypy
 import binascii
 import ConfigParser
+import logging
+import logging.config
 
 from database import *
 from search import *
@@ -183,8 +185,11 @@ def main(argv):
         cherrypy.response.headers["Access-Control-Allow-Origin"] = "*"
     cherrypy.tools.CORS = cherrypy.Tool('before_handler', CORS)
 
+    logging.config.fileConfig(os.path.join(CURRENT_DIR, 'logger.conf'))
+    logger = logging.getLogger(__name__)
+
     config = ConfigParser.ConfigParser()
-    config.read(os.path.join(CURRENT_DIR, 'billy.cfg'))
+    config.read(os.path.join(CURRENT_DIR, 'billy.conf'))
 
     search = Search(args.index or (os.path.join(CURRENT_DIR, 'data', 'index')))
     db = Database(config, (args.dbname or 'billy'), search.index)
@@ -192,7 +197,7 @@ def main(argv):
     # Import tracks
     if args.tracks:
         with open(args.tracks, 'rb') as fp:
-            print 'Importing tracks..',
+            logger.info('Importing tracks')
             tracks = json.load(fp)
             for track in tracks:
                 waveform = track.pop('waveform', None)
@@ -201,25 +206,25 @@ def main(argv):
 
                 if track_id and waveform is not None:
                     db.add_waveform(track_id, waveform)
-            print 'done'
+            logger.info('Finished importing tracks')
 
     # Import sources
     if args.sources:
         with open(args.sources, 'rb') as fp:
-            print 'Importing sources..',
+            logger.info('Importing sources')
             sources = json.load(fp)
             for source in sources:
                 track_id = db.add_source(source)
-            print 'done'
+            logger.info('Finished importing sources')
 
     # Import users
     if args.users:
         with open(args.users, 'rb') as fp:
-            print 'Importing users..',
+            logger.info('Importing users')
             users = json.load(fp)
             for user in users:
                 db.add_user(user['name'], user['password'])
-            print 'done'
+            logger.info('Finished importing users')
 
     db.start()
     api = API(db, search)
@@ -234,9 +239,13 @@ def main(argv):
                         'response.headers.connection': "close"}}
         app = cherrypy.tree.mount(StaticContent(), '/billy', config)
 
-    config = {'/': {'tools.CORS.on': True,
+    config = {'/': {'log.screen': False,
+                    'log.access_file': '',
+                    'log.error_file': '',
+                    'tools.CORS.on': True,
                     'tools.response_headers.on': True,
                     'tools.response_headers.headers': [('Content-Type', 'text/plain')]}}
+
     app = cherrypy.tree.mount(api, '/api', config)
 
     server = cherrypy._cpserver.Server()

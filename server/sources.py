@@ -7,6 +7,7 @@ import requests
 import lxml.html
 import feedparser
 import dateutil.tz
+import logging
 
 from datetime import datetime
 from dateutil.parser import parse
@@ -35,7 +36,7 @@ def extract_youtube_id(url):
     o = urlparse(url)
     query = parse_qs(o.query)
     if 'v' in query:
-        return query['v']
+        return query['v'][0]
     else:
         path_split = o.path.split('/')
         if 'v' in path_split or 'e' in path_split or 'embed' in path_split:
@@ -47,24 +48,29 @@ def extract_soundcloud_id(url):
     for url in urls:
         index = url.find('/tracks/')
         if index > 0:
-            return re.findall(r'\d+', url[index + 8:])[0]
+            return str(re.findall(r'\d+', url[index + 8:])[0])
 
 
 def request_soundcloud_id(url, api_key):
+    url = url.replace('https://w.soundcloud.com/player/?url=', '')
+
     response = requests.get(SOUNDCLOUD_RESOLVE_URL.format(url=url, api_key=api_key))
     if response.status_code == 200:
         try:
             response_dict = response.json()
         except ValueError:
-            print 'Error: could not get soundcloud id for:', url
+            logger = logging.getLogger(__name__)
+            logger.error('Could not get soundcloud id for: %s', url)
         else:
             if response_dict.get('kind', '') == 'track':
-                return response_dict['id']
+                return str(response_dict['id'])
 
 
 class RSSSource(object):
 
     def __init__(self, url, config, last_check=0):
+        self.logger = logging.getLogger(__name__)
+
         self.url = url
         self.config = config
         self.last_check = last_check
@@ -79,35 +85,23 @@ class RSSSource(object):
             if epoch_time < since:
                 continue
 
-            links = [link['href'] for link in entry['links'] if link['type'] == 'audio/mpeg']
+            audio_links = []
+            for link in entry['links']:
+                if link['type'] == 'audio/mpeg':
+                    audio_links.append(link['href'])
+                else:
+                    try:
+                        response = requests.get(link['href'])
+                    except:
+                        self.logger.error('Failed to GET %s', link['href'])
+                    else:
+                        audio_links.extend(self.extract_audio_links(response.content))
+            audio_links.extend(self.extract_audio_links(entry['description']))
 
-            # Extract Youtube/Soundcloud id's from iframes in description
-            try:
-                tree = lxml.html.fromstring(entry['description'])
-            except (XMLSyntaxError, KeyError):
-                tree = None
-
-            if tree:
-                iframe_sel = CSSSelector('iframe')
-                for iframe in iframe_sel(tree):
-                    url = iframe.get('src')
-                    url_split = url.split('/')
-
-                    if url_split[2].endswith('youtube.com'):
-                        youtube_id = extract_youtube_id(url)
-                        if youtube_id:
-                            links.append('youtube:' + youtube_id)
-
-                    elif url_split[2].endswith('soundcloud.com'):
-                        api_key = self.config.get('sources', 'soundcloud_api_key')
-                        soundcloud_id = extract_soundcloud_id(url) or request_soundcloud_id(url, api_key)
-                        if soundcloud_id:
-                            links.append('soundcloud:' + soundcloud_id)
-
-            for link in links:
-                print entry['title']
+            for audio_link in audio_links:
+                self.logger.info('Found link in RSS source: %s - %s', entry['title'], audio_link)
                 item = {'title': entry['title'],
-                        'link': link,
+                        'link': audio_link,
                         'ts': epoch_time}
 
                 if 'image' in entry:
@@ -119,6 +113,50 @@ class RSSSource(object):
 
         return results
 
+    def extract_audio_links(self, text):
+        # Extract Youtube/Soundcloud id's from iframes/anchors
+        audio_links = []
+
+        try:
+            tree = lxml.html.fromstring(text)
+        except (XMLSyntaxError, KeyError):
+            tree = None
+
+        if tree is not None:
+            urls = []
+
+            # Find iframes/anchors urls
+            iframe_sel = CSSSelector('iframe')
+            for iframe in iframe_sel(tree):
+                url = iframe.get('src')
+                if url:
+                    urls.append(url)
+            anchor_sel = CSSSelector('a')
+            for anchor in anchor_sel(tree):
+                url = anchor.get('href')
+                if url:
+                    urls.append(url)
+
+            # Process urls
+            for url in urls:
+                url_split = url.split('/')
+
+                if len(url_split) < 3:
+                    continue
+
+                if url_split[2].endswith('youtube.com'):
+                    youtube_id = extract_youtube_id(url)
+                    if youtube_id:
+                        audio_links.append('youtube:' + youtube_id)
+
+                elif url_split[2].endswith('soundcloud.com'):
+                    api_key = self.config.get('sources', 'soundcloud_api_key')
+                    soundcloud_id = extract_soundcloud_id(url) or request_soundcloud_id(url, api_key)
+                    if soundcloud_id:
+                        audio_links.append('soundcloud:' + soundcloud_id)
+
+        return audio_links
+
     def __str__(self):
         return "RSSSource_%s" % self.url
 
@@ -126,6 +164,8 @@ class RSSSource(object):
 class YoutubeSource(object):
 
     def __init__(self, type, id, config, last_check=0):
+        self.logger = logging.getLogger(__name__)
+
         self.type = type
         self.id = id
         self.config = config
@@ -134,7 +174,7 @@ class YoutubeSource(object):
     def has_error(self, response_dict):
         if 'error' in response_dict:
             reason = response_dict['error']['errors'][0].get('reason', 'no reason given')
-            print 'Error from Youtube', self.type, ':', response_dict['error']['message'], ('(%s)' % reason)
+            self.logger.error('Error from Youtube %s : %s (%s)', self.type, response_dict['error']['message'], reason)
             return True
         return False
 

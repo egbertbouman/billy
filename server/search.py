@@ -1,6 +1,7 @@
 import os
 import json
 import random
+import logging
 
 # We make use of the Pylucene libraries (see http://lucene.apache.org/pylucene/)
 import lucene
@@ -26,6 +27,8 @@ lucene.initVM()
 class Search(object):
 
     def __init__(self, index_dir, alternative_spelling_dict={}):
+        self.logger = logging.getLogger(__name__)
+
         self.index_dir = index_dir
         self.alternative_spelling_dict = alternative_spelling_dict
         self.analyzer = StandardAnalyzer(Version.LUCENE_CURRENT)
@@ -62,7 +65,7 @@ class Search(object):
             doc = Document()
 
             index_terms = ' '.join(getIndexTerms(song, self.alternative_spelling_dict))
-            print 'Indexing song ''%s'' with terms: %s\n' % (song['title'].encode('utf-8'), index_terms)
+            self.logger.info('Indexing song ''%s'' with terms: %s\n', song['title'].encode('utf-8'), index_terms)
 
             if not LUCENE3:
                 doc.add(Field("index_terms", index_terms, index_terms_field))
@@ -110,7 +113,7 @@ class Search(object):
             song_set_ids = [song['_id'] for song in song_set]
             frequent_terms_in_set = getFrequentTerms(song_set)
             query_from_frequent_terms = ' '.join(frequent_terms_in_set)
-            print 'querying dataset for "%s"' % query_from_frequent_terms
+            self.logger.info('Querying dataset for "%s"', query_from_frequent_terms)
             search_results = self.search(query_from_frequent_terms)
 
             filtered_search_results = []

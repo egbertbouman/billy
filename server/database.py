@@ -7,6 +7,7 @@ import random
 import binascii
 import threading
 import requests
+import logging
 
 from sources import *
 from pymongo import MongoClient
@@ -26,6 +27,8 @@ class Database(threading.Thread):
 
     def __init__(self, config, db_name, add_track_cb):
         threading.Thread.__init__(self)
+
+        self.logger = logging.getLogger(__name__)
 
         self.config = config
         self.add_track_cb = add_track_cb
@@ -70,7 +73,7 @@ class Database(threading.Thread):
         for source_dict in sources:
             source = self.create_source(source_dict)
             if source is None:
-                print 'Incorrect source found in database, skipping'
+                self.logger.error('Incorrect source found in database, skipping')
             else:
                 self.sources[source_dict['_id']] = source
 
@@ -85,7 +88,7 @@ class Database(threading.Thread):
                 continue
 
             tracks = source.fetch(source.last_check)
-            print source, len(tracks)
+            self.logger.info('Got %s track(s) for source %s', len(tracks), source)
 
             for track in tracks:
                 track['source'] = source_id
@@ -101,8 +104,9 @@ class Database(threading.Thread):
 
     def run(self):
         while True:
+            self.logger.info('Checking sources')
             count = self.check_sources()
-            print 'Got %d new track(s)' % count
+            self.logger.info('Finished checking sources. Got %d new track(s)', count)
             time.sleep(SOURCES_CHECK_INTERVAL)
 
     def get_session(self, token):

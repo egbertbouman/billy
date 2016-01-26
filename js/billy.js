@@ -276,12 +276,13 @@ billy = {};
         },
 
         stop: function() {
-            this.yt_player.stopVideo();
-            this.yt_player.seekTo(0);
-            if (this.yt_player_timer !== undefined) {
-                clearInterval(this.yt_player_timer);
-                this.yt_player_timer = undefined;
-                this.fire_event('paused', 'youtube');
+            if (this.track !== undefined && this.track['link'].startsWith('youtube:')) {
+                this.yt_player.stopVideo();
+                if (this.yt_player_timer !== undefined) {
+                    clearInterval(this.yt_player_timer);
+                    this.yt_player_timer = undefined;
+                    this.fire_event('paused', 'youtube');
+                }
             }
 
             this.sc_player.pause();

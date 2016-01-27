@@ -2,10 +2,10 @@ import re
 import json
 import time
 import urllib
-import datetime
 import requests
 import lxml.html
 import feedparser
+import datetime
 import dateutil.tz
 import logging
 
@@ -54,7 +54,7 @@ def extract_soundcloud_id(url):
 def request_soundcloud_id(url, api_key):
     url = url.replace('https://w.soundcloud.com/player/?url=', '')
 
-    response = requests.get(SOUNDCLOUD_RESOLVE_URL.format(url=url, api_key=api_key))
+    response = requests.get(SOUNDCLOUD_RESOLVE_URL.format(url=url.encode('utf-8'), api_key=api_key))
     if response.status_code == 200:
         try:
             response_dict = response.json()
@@ -62,7 +62,7 @@ def request_soundcloud_id(url, api_key):
             logger = logging.getLogger(__name__)
             logger.error('Could not get soundcloud id for: %s', url)
         else:
-            if response_dict.get('kind', '') == 'track':
+            if isinstance(response_dict, dict) and response_dict.get('kind', '') == 'track':
                 return str(response_dict['id'])
 
 
@@ -96,7 +96,9 @@ class RSSSource(object):
                         self.logger.error('Failed to GET %s', link['href'])
                     else:
                         audio_links.extend(self.extract_audio_links(response.content))
-            audio_links.extend(self.extract_audio_links(entry['description']))
+
+            if 'description' in entry:
+                audio_links.extend(self.extract_audio_links(entry['description']))
 
             for audio_link in audio_links:
                 self.logger.info('Found link in RSS source: %s - %s', entry['title'], audio_link)
@@ -119,7 +121,7 @@ class RSSSource(object):
 
         try:
             tree = lxml.html.fromstring(text)
-        except (XMLSyntaxError, KeyError):
+        except:
             tree = None
 
         if tree is not None:

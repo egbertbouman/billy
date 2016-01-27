@@ -489,13 +489,26 @@ billy = {};
         $(window).resize(function() {
             self.set_waveform(self.player.track._id);
         });
+        $('.navbar-link').popover({html: true, trigger: 'manual', content: ''})
         $('.navbar-link').mousedown(function(evt) {
             var el = $(this);
-            $.get(el.data('load'), function(data) {
-                var html = self.create_status_popover(data);
-                el.attr('data-content', html);
-                el.popover({html: true, content: html}).popover('show');
-            });
+            if (el.data()['bs.popover'].tip().hasClass('in')) {
+                el.popover('hide');
+            }
+            else {
+                $.get(el.data('load'), function(data) {
+                    var html = self.create_status_popover(data);
+                    el.attr('data-content', html);
+                    el.popover('show');
+                    $('#copy-session-id').click(function (evt) {
+                        var $temp = $('<input>');
+                        $('body').append($temp);
+                        $temp.val($('#session-id').val()).select();
+                        document.execCommand('copy');
+                        $temp.remove();
+                    });
+                });
+            }
         });
         $('.navbar-link').on('click', function(evt) {
             evt.preventDefault();
@@ -706,15 +719,6 @@ billy = {};
 
             // If we do have results, show them
             $.each(data['results'], function(key, val) {
-
-                if (!('tags' in val['musicinfo']))
-                    val['musicinfo']['tags'] = {};
-                if (!('genres' in val['musicinfo']['tags']))
-                    val['musicinfo']['tags']['genres'] = [];
-                if (!('instruments' in val['musicinfo']['tags']))
-                    val['musicinfo']['tags']['instruments'] = [];
-                if (!('vartags' in val['musicinfo']['tags']))
-                    val['musicinfo']['tags']['vartags'] = [];
 
                 var track = {
                     title: val['title'],
@@ -962,39 +966,44 @@ billy = {};
         tags_html = "<div class='popover-container'>" +
                     "<table><tr><td>Genres:</td><td>";
 
-        if (musicinfo['tags']['genres'].length == 0) {
+        var genres = (((musicinfo || {}).tags || {}).genres || []);
+        var instruments = (((musicinfo || {}).tags || {}).instruments || []);
+        var vartags = (((musicinfo || {}).tags || {}).vartags || []);
+        var functions = (musicinfo || {}).functions;
+
+        if (genres.length == 0) {
             tags_html += "n/a";
         }
 
-        musicinfo['tags']['genres'].forEach(function (tag) {
+        genres.forEach(function (tag) {
             tags_html += "<span class='label label-success'>" + tag + "</span>";
         });
 
         tags_html += "</td></tr><tr><td>Instruments:</td><td>";
 
-        if (musicinfo['tags']['instruments'].length == 0) {
+        if (instruments.length == 0) {
             tags_html += "n/a";
         }
 
-        musicinfo['tags']['instruments'].forEach(function (tag) {
+        instruments.forEach(function (tag) {
             tags_html += "<span class='label label-danger'>" + tag + "</span>";
         });
 
         tags_html += "</td></tr><tr><td>Other:</td><td>";
 
-        if (musicinfo['tags']['vartags'].length == 0) {
+        if (vartags.length == 0) {
             tags_html += "n/a";
         }
 
-        musicinfo['tags']['vartags'].forEach(function (tag) {
+        vartags.forEach(function (tag) {
             tags_html += "<span class='label label-primary'>" + tag + "</span>";
         });
 
-        if ('functions' in musicinfo) {
+        if (functions) {
             tags_html += "</td></tr><tr><td>Functions:</td><td>";
 
-            Object.keys(musicinfo['functions']).forEach(function (name) {
-                var count = musicinfo['functions'][name];
+            Object.keys(functions).forEach(function (name) {
+                var count = functions[name];
                 tags_html += "<span class='label label-warning'>" + name + " (" + count + ")</span>";
             });
         }
@@ -1026,7 +1035,7 @@ billy = {};
         });
         html += '<tr><td>#tracks</td><td>total</td><td>' + total + '</td></tr>' + tracks_html;
 
-        html += '<tr><td>session id</td><td></td><td><div class="input-group input-group-sm"><div class="input-group-btn"><button id="copy-session-id" class="btn btn-default" type="button"><span class="glyphicon glyphicon-copy" style="font-size:100%;"></span></button></div><input type="text" class="form-control" style="width:100px;" value="' + this.token + '"/></div></td></tr>';
+        html += '<tr><td>session id</td><td></td><td><div class="input-group input-group-sm"><div class="input-group-btn"><button id="copy-session-id" class="btn btn-default" type="button"><span class="glyphicon glyphicon-copy" style="font-size:100%;"></span></button></div><input id="session-id" type="text" class="form-control" style="width:100px;" value="' + this.token + '"/></div></td></tr>';
         html += '</table></div>';
 
         return html;

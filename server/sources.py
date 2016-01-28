@@ -17,8 +17,9 @@ from urlparse import urlparse, parse_qs
 
 feedparser._HTMLSanitizer.acceptable_elements.update(['iframe'])
 
-YOUTUBE_CHANNEL_URL = 'https://www.googleapis.com/youtube/v3/search?key={api_key}&channelId={id}&part=snippet&order=date&type=video&publishedBefore={before}&publishedAfter={after}&pageToken={token}&maxResults=50'
-YOUTUBE_PLAYLIST_URL = 'https://www.googleapis.com/youtube/v3/playlistItems?key={api_key}&playlistId={id}&part=snippet&pageToken={token}&maxResults=50'
+YOUTUBE_CHANNEL_URL = 'https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id={id}&key={api_key}'
+YOUTUBE_PLAYLISTITEMS_URL = 'https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId={id}&page_token&pageToken={token}&maxResults=50&key={api_key}'
+YOUTUBE_PLAYLIST_URL = 'https://www.googleapis.com/youtube/v3/playlistItems?key={api_key}&playlistId={id}&part=snippet&pageToken={token}&maxResults=50&order=date'
 SOUNDCLOUD_RESOLVE_URL = 'https://api.soundcloud.com/resolve.json?url={url}&client_id={api_key}'
 
 
@@ -193,36 +194,40 @@ class YoutubeSource(object):
 
     def _fetch_channel(self, since=0):
         results = []
-
-        published_before = ts_to_rfc3339(time.time())
-        published_after = ts_to_rfc3339(since)
-        page_token = ''
         api_key = self.config.get('sources', 'youtube_api_key')
 
+        response = requests.get(YOUTUBE_CHANNEL_URL.format(api_key=api_key, id=self.id))
+        response_dict = response.json()
+
+        if self.has_error(response_dict):
+            return results
+
+        uploads = response_dict['items'][0]['contentDetails']['relatedPlaylists']['uploads']
+        page_token = ''
+
         while page_token is not None:
-            url = YOUTUBE_CHANNEL_URL.format(api_key=api_key, id=self.id, before=published_before, after=published_after, token=page_token)
-            response = requests.get(url)
+            response = requests.get(YOUTUBE_PLAYLISTITEMS_URL.format(api_key=api_key, id=uploads, token=page_token))
             response_dict = response.json()
 
             if self.has_error(response_dict):
                 return results
 
             items = response_dict['items']
+
             for item in items:
                 snippet = item['snippet']
+
+                ts = datetime_to_ts(parse(snippet['publishedAt']))
+                if ts < since:
+                    # We don't care about anything older then this
+                    return results
+
                 results.append({'title': snippet['title'],
-                                'link': 'youtube:' + item['id']['videoId'],
-                                'ts': datetime_to_ts(parse(snippet['publishedAt'])),
+                                'link': 'youtube:' + snippet['resourceId']['videoId'],
+                                'ts': ts,
                                 'image': snippet['thumbnails']['default']['url']})
 
             page_token = response_dict.get('nextPageToken', None)
-
-            # Did we hit the 500 results limit?
-            if items and page_token is None and len(results) % 500 == 0:
-                page_token = ''
-
-                # Offset time by 1s to ensure to don't get the same video twice
-                published_before = ts_to_rfc3339(time.mktime(parse(items[-1]['snippet']['publishedAt']).utctimetuple()) - 1)
 
         return results
 
@@ -245,9 +250,15 @@ class YoutubeSource(object):
                 snippet = item['snippet']
                 if snippet['title'] in ['Deleted video', 'Private video']:
                     continue
+
+                ts = datetime_to_ts(parse(snippet['publishedAt']))
+                if ts < since:
+                    # We don't care about anything older then this
+                    return results
+
                 results.append({'title': snippet['title'],
                                 'link': 'youtube:' + snippet['resourceId']['videoId'],
-                                'ts': datetime_to_ts(parse(snippet['publishedAt'])),
+                                'ts': ts,
                                 'image': snippet['thumbnails']['default']['url']})
 
             page_token = response_dict.get('nextPageToken', None)

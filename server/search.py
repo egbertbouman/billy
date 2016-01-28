@@ -129,7 +129,7 @@ class Search(object):
 
         # Return recommendations based on playlist name + description
         query = playlist['name'] + ' ' + playlist['description']
-        print 'querying dataset for "%s"' % query
+        self.logger.info('Querying dataset for "%s"', query)
         return self.search(query)
 
 

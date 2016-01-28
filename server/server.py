@@ -65,7 +65,6 @@ class API(object):
                 body = cherrypy.request.body.read(length)
 
                 playlists_new = json.loads(body)
-                print playlists_new.values()[0]
                 tracks_new = set((p['name'], track_id) for p in playlists_new.values() for track_id in p['tracks'])
 
                 playlists_old = session['playlists']

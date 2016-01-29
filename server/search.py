@@ -159,10 +159,12 @@ def getIndexTerms(song, alternative_spelling_dict):
 
     index_terms.append(getUnicodeString(song["title"]))
 
-    index_terms.append(getUnicodeString(song["musicinfo"].get("acousticelectric", "")))
-    index_terms.append(getUnicodeString(song["musicinfo"].get("vocalinstrumental", "")))
+    music_info = song.get("musicinfo", {})
 
-    index_terms.extend(expandSpeedTerms((song["musicinfo"].get("speed", ""))))
+    index_terms.append(getUnicodeString(music_info.get("acousticelectric", "")))
+    index_terms.append(getUnicodeString(music_info.get("vocalinstrumental", "")))
+
+    index_terms.extend(expandSpeedTerms(music_info.get("speed", "")))
     index_terms.extend(getCombinedTags(song, alternative_spelling_dict))
 
     index_terms = [term.encode('utf-8') for term in index_terms]
@@ -190,8 +192,9 @@ def expandSpeedTerms(speed_qualifier):
 def getCombinedTags(song_json_data, alternative_spelling_dict={}):
     combined_tags = []
 
-    for category in song_json_data['musicinfo']['tags'].keys():
-        for tag in song_json_data['musicinfo']['tags'][category]:
+    music_info = song_json_data.get('musicinfo', {})
+    for category, tags in music_info.iteritems():
+        for tag in tags:
             combined_tags.extend(expandAlternativeSpellings(getUnicodeString(tag), alternative_spelling_dict))
 
     return combined_tags

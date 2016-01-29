@@ -1041,7 +1041,7 @@ billy = {};
         });
         html += '<tr><td>#tracks</td><td>total</td><td>' + total + '</td></tr>' + tracks_html;
 
-        html += '<tr><td>session id</td><td></td><td><div class="input-group input-group-sm"><div class="input-group-btn"><button id="copy-session-id" class="btn btn-default" type="button"><span class="glyphicon glyphicon-copy" style="font-size:100%;"></span></button></div><input id="session-id" type="text" class="form-control" style="width:100px;" value="' + this.token + '"/></div></td></tr>';
+        html += '<tr><td>session id</td><td></td><td><div class="input-group input-group-sm"><div class="input-group-btn"><button id="copy-session-id" class="btn btn-default" type="button"><span class="glyphicon glyphicon-copy" style="font-size:100%;"></span></button></div><input id="session-id" type="text" class="form-control" style="background:#fff;width:100px;" value="' + this.token + '" readonly/></div></td></tr>';
         html += '</table></div>';
 
         return html;

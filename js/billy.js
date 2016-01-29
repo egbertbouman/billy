@@ -14,6 +14,12 @@ Number.prototype.pad = function(size) {
     return s;
 };
 
+function getParameterByName(name) {
+    name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]");
+    var regex = new RegExp("[\\?&]" + name + "=([^&#]*)"),
+        results = regex.exec(location.search);
+    return results === null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
+};
 
 billy = {};
 
@@ -758,7 +764,7 @@ billy = {};
         var port = location.port || (location.protocol === 'https:' ? '443' : '80');
         var cookie_name = 'token' + port;
 
-        this.token = $.cookie(cookie_name);
+        this.token = getParameterByName('token') || $.cookie(cookie_name);
         if (this.token !== undefined) {
             // Load playlists from server and show them to the user
             $.getJSON(self.api_playlists.format(this.token, ''), function(data) {

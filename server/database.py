@@ -13,6 +13,7 @@ from sources import *
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 from pymongo.son_manipulator import SONManipulator
+from multiprocessing.dummy import Pool as ThreadPool
 
 SOURCES_CHECK_INTERVAL = 24*3600
 
@@ -38,6 +39,7 @@ class Database(threading.Thread):
         self.client = MongoClient(mongo_host, mongo_port)
         self.db = self.client[db_name]
         self.db.add_son_manipulator(ObjectIdToString())
+        self.db.tracks.ensure_index('link')
 
         self.sources = {}
         self.load_sources()
@@ -81,35 +83,43 @@ class Database(threading.Thread):
                 self.sources[source_dict['_id']] = source
 
     def check_sources(self):
-        count = 0
-        now = int(time.time())
 
-        self.info['status'] = 'checking'
+        def callback(args):
+            if args is None:
+                return
 
-        for source_id, source in self.sources.iteritems():
-            if now - source.last_check < SOURCES_CHECK_INTERVAL:
-                continue
+            source_id, source, tracks, tname = args
+            count = self.add_tracks(tracks)
 
-            tracks = source.fetch(source.last_check)
-            self.logger.info('Got %s track(s) for source %s', len(tracks), source)
-
-            for track in tracks:
-                track['source'] = source_id
-                track_id = self.add_track(track)
-                if track_id:
-                    count += 1
+            self.logger.info('Got %s track(s) for source %s (thread=%s; %s are new)', len(tracks), source, tname, count)
 
             self.db.sources.update({'_id': source_id}, {'$set': {'last_check': source.last_check}})
 
+        self.info['status'] = 'checking'
+
+        pool = ThreadPool(4)
+        for source_id, source in self.sources.iteritems():
+            pool.apply_async(self.check_source, args=(source_id, source), callback=callback)
+        pool.close()
+        pool.join()
+
         self.info['status'] = 'idle'
 
-        return count
+    def check_source(self, source_id, source):
+        now = int(time.time())
+        if now - source.last_check < SOURCES_CHECK_INTERVAL:
+            return
+
+        tracks = source.fetch(source.last_check)
+        for track in tracks:
+            track['source'] = source_id
+        return source_id, source, tracks, threading.current_thread().name
 
     def run(self):
         while True:
             self.logger.info('Checking sources')
-            count = self.check_sources()
-            self.logger.info('Finished checking sources. Got %d new track(s)', count)
+            self.check_sources()
+            self.logger.info('Finished checking sources')
             time.sleep(SOURCES_CHECK_INTERVAL)
 
     def get_session(self, token, resolve_tracks=True):
@@ -136,8 +146,16 @@ class Database(threading.Thread):
     def update_session(self, token, playlists):
         self.db.sessions.update({'_id': token}, {'$set': {'playlists': playlists}})
 
-    def add_track(self, track):
-        if not list(self.db.tracks.find({'link': track['link']}).limit(1)):
+    def add_tracks(self, tracks):
+        existing_tracks = list(self.db.tracks.find({'link': {'$in': [track['link'] for track in tracks]}}, {'link': 1}))
+        existing_links = [track['link'] for track in existing_tracks]
+
+        to_insert = [track for track in tracks if track['link'] not in existing_links]
+
+        if not to_insert:
+            return 0
+
+        for track in to_insert:
             # Try to split the title into artist and name components
             if track['title'].count(' - ') == 1:
                 track['artist_name'], track['track_name'] = track['title'].split(' - ', 1)
@@ -158,16 +176,20 @@ class Database(threading.Thread):
                     top_tags = []
                 track['musicinfo'] = {'tags': {'vartags': top_tags}}
 
-            track_id = self.db.tracks.insert(track)
-            if track_id:
-                # Update db stats
-                link_type = track['link'].split(':')[0]
-                self.info['num_tracks'][link_type] = self.info['num_tracks'].get(link_type, 0) + 1
+        self.db.tracks.insert(to_insert)
 
-                track['_id'] = track_id
-                if self.add_track_cb is not None:
-                    self.add_track_cb(track)
-                return track_id
+        for track in to_insert:
+            # Update db stats
+            link_type = track['link'].split(':')[0]
+            self.info['num_tracks'][link_type] = self.info['num_tracks'].get(link_type, 0) + 1
+
+            self.add_track_cb(track)
+
+        return len(to_insert)
+
+    def add_track(self, track):
+        if self.add_tracks([track]) == 1:
+            return list(self.db.tracks.find({'link': track['link']}).limit(1))[0]
         return False
 
     def get_track(self, track_id):

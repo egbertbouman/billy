@@ -21,9 +21,10 @@ CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
 
 class API(object):
 
-    def __init__(self, database, search):
+    def __init__(self, database, search, config):
         self.database = database
         self.search = search
+        self.config = config
 
     def get_session(self, token, resolve_tracks=True):
         return self.database.get_session(token, resolve_tracks)
@@ -89,7 +90,7 @@ class API(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def tracks(self, query=None, id=None, **kwargs):
+    def tracks(self, query=None, id=None, offset=0, **kwargs):
         if bool(query) == bool(id):
             return self.error('please use either the query or the id param', 400)
 
@@ -101,11 +102,21 @@ class API(object):
 
         results = self.search.search(query)
         results.sort(key=lambda x: x.get('stats', {}).get('playlisted', 0), reverse=True)
-        return {'results': results}
+
+        offset = int(offset)
+        page_size = int(self.config.get('api', 'page_size'))
+
+        if offset > len(results):
+            return self.error('offset is larger then result-set', 404)
+        else:
+            return {'offset': offset,
+                    'page_size': page_size,
+                    'total': len(results),
+                    'results': results[offset:offset+page_size]}
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def recommend(self, token, name, **kwargs):
+    def recommend(self, token, name, offset=0, **kwargs):
         session = self.get_session(token)
         if session is None:
             return self.error('cannot find session', 404)
@@ -117,10 +128,21 @@ class API(object):
 
         results = self.search.recommend(playlist)
 
-        if results is None:
-            results = self.database.get_random_tracks(20)
+        offset = int(offset)
+        page_size = int(self.config.get('api', 'page_size'))
 
-        return {'results': results}
+        if results is None:
+            results = self.database.get_random_tracks(page_size)
+            return {'offset': 0,
+                    'total': len(results),
+                    'results': results}
+        elif offset > len(results):
+            return self.error('offset is larger then result-set', 404)
+        else:
+            return {'offset': offset,
+                    'page_size': page_size,
+                    'total': len(results),
+                    'results': results[offset:offset+page_size]}
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -246,7 +268,7 @@ def main(argv):
             logger.info('Finished importing users')
 
     db.start()
-    api = API(db, search)
+    api = API(db, search, config)
 
     if args.dir:
         html_dir = os.path.abspath(args.dir)

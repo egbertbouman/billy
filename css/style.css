@@ -1,6 +1,6 @@
 body {
     padding-top: 90px;
-    padding-bottom: 90px
+    padding-bottom: 225px;
 }
 .container-fixed {
     min-width: 1000px;
@@ -212,4 +212,7 @@ span.rollover:hover {
 .disable-click {
     pointer-events: none;
     color: #888 !important;
+}
+#page-selection-left, #page-selection-right {
+    text-align: center;
 }

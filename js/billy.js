@@ -21,6 +21,14 @@ function getParameterByName(name) {
     return results === null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
 };
 
+function replaceParameter(url, name, value){
+    var pattern = new RegExp('\\b(' + name + '=).*?(&|$)');
+    if (url.search(pattern) >= 0) {
+        return url.replace(pattern, '$1' + value + '$2');
+    }
+    return url + (url.indexOf('?') > 0 ? '&' : '?') + name + '=' + value;
+}
+
 billy = {};
 
 (function(billy, $) {
@@ -741,6 +749,16 @@ billy = {};
 
                 if (current == val['_id'])
                     item.addClass('playlist-current');
+            });
+
+            // Add pagination
+            $('<div id="page-selection-left"></div>').appendTo(target).bootpag({
+                total: Math.ceil(data.total / data.page_size),
+                page: Math.floor(data.offset / data.page_size) + 1,
+                maxVisible: 5
+            }).on("page", function(event, num){
+                self.call_api(replaceParameter(url, 'offset', (num - 1) * data.page_size), target, callback);
+                $('html, body').scrollTop(0);
             });
 
             if (callback !== undefined)

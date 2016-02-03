@@ -585,6 +585,8 @@ billy = {};
                 var item = self.create_listitem(track, true);
                 item.appendTo(target);
             });
+            if (self.player.track)
+                self.set_highlighting();
         });
         this.playlist.listen('play', function(event, index) {
             self.set_highlighting();
@@ -614,7 +616,15 @@ billy = {};
                 continue;
             }
 
-            $('#playlist-tabs').append('<li role="presentation"><a href="#" onclick="billy.change_playlist(\'' + name + '\');">' + name + '</a></li>');
+            var tab = $('<li role="presentation"><a href="#" onclick="billy.change_playlist(\'' + name + '\');">' + name + ' </a></li>');
+
+            if (playlists[name].type === 'identity') {
+                tab.prependTo($('#playlist-tabs'));
+                tab.children('a').append($('<small><span class="glyphicon glyphicon-user" aria-hidden="true"></span></small>'));
+            }
+            else {
+                tab.appendTo($('#playlist-tabs'));
+            }
             this.playlists[name] = playlists[name];
         }
         // If no playlist was selected, select one now.
@@ -648,15 +658,26 @@ billy = {};
         saveAs(blob, "playlists.json");
     }
 
-    billy.create_playlist = function(name, description, functions) {
+    billy.create_playlist = function(name, description, identity, functions) {
         if (name === undefined) {
             $('#new-playlist-modal').modal('show');
             return;
         }
-        var tab = $('<li role="presentation"><a href="#" onclick="billy.change_playlist(\'' + name + '\');">' + name + '</a></li>').appendTo($('#playlist-tabs'));
+
+        var tab = $('<li role="presentation"><a href="#" onclick="billy.change_playlist(\'' + name + '\');">' + name + ' </a></li>');
+
+        if (identity) {
+            tab.prependTo($('#playlist-tabs'));
+            tab.children('a').append($('<small><span class="glyphicon glyphicon-user" aria-hidden="true"></span></small>'));
+        }
+        else {
+            tab.appendTo($('#playlist-tabs'));
+        }
+
         if (Object.keys(this.playlists).length == 0)
             tab.tab('show');
-        this.playlists[name] = {name: name, description: description, tracks: [], functions: functions};
+
+        this.playlists[name] = {name: name, description: description, tracks: [], type: (identity ? 'identity' : 'user'), functions: functions};
         this.change_playlist(name);
         this.save_to_server();
     }
@@ -681,7 +702,7 @@ billy = {};
 
         delete this.playlists[to_delete];
         $('#playlist-tabs > li > a').filter(function() {
-            return $(this).text() === to_delete;
+            return $.trim($(this).text()) === to_delete;
         }).parent().remove();
 
         this.save_to_server();
@@ -699,7 +720,7 @@ billy = {};
         }
         this.playlist_name = name;
         $('#playlist-tabs > li > a').filter(function() {
-            return $(this).text() === name;
+            return $.trim($(this).text()) === name;
         }).parent().tab('show');
         $('#playlist-menu-button').html('Playlist: ' + name + ' <span class="caret"></span>');
         $('#playlist > .column-description').html(this.playlists[name]['description']);
@@ -1059,7 +1080,7 @@ billy = {};
         });
         html += '<tr><td>#tracks</td><td>total</td><td>' + total + '</td></tr>' + tracks_html;
 
-        html += '<tr><td>session id</td><td></td><td><div class="input-group input-group-sm"><div class="input-group-btn"><button id="copy-session-id" class="btn btn-default" type="button"><span class="glyphicon glyphicon-copy" style="font-size:100%;"></span></button></div><input id="session-id" type="text" class="form-control" style="background:#fff;width:100px;" value="' + this.token + '" readonly/></div></td></tr>';
+        html += '<tr><td nowrap>session url</td><td></td><td><div class="input-group input-group-sm"><div class="input-group-btn"><button id="copy-session-id" class="btn btn-default" type="button"><span class="glyphicon glyphicon-copy" style="font-size:100%;"></span></button></div><input id="session-id" type="text" class="form-control" style="background:#fff;width:100px;" value="' + replaceParameter(window.location.href, 'token', this.token) + '" readonly/></div></td></tr>';
         html += '</table></div>';
 
         return html;

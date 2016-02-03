@@ -122,7 +122,13 @@ class API(object):
             return self.error('cannot find session', 404)
 
         playlists = session['playlists']
-        playlist = playlists.get(name, None)
+        playlist = None
+
+        for p in playlists.itervalues():
+            if p.get('type', 'user') == 'identity':
+                playlist = p
+
+        playlist = playlist or playlists.get(name, None)
         if playlist is None:
             return self.error('cannot find playlist', 404)
 

@@ -155,6 +155,14 @@
                         <textarea id="playlist-description" class="form-control" rows="3"  placeholder="For what purpose would you like to use this playlist? Please enter a short description here."  required></textarea>
                     </div>
                     <div class="form-group">
+                        <div class="checkbox">
+                           <label>
+                               <input type="checkbox" id="playlist-identity" value="identity">
+                               This playlist is an identity playlist
+                           </label>
+                        </div>
+                    </div>
+                    <div class="form-group">
                         <label class="control-label">How will you use the playlist music?</label>
                         <div class="checkbox">
                            <label>
@@ -261,6 +269,7 @@
         if (!evt.isDefaultPrevented()) {
           var name = $('#playlist-name').val();
           var description = $('#playlist-description').val();
+          var identity = $('#playlist-identity').prop('checked');
           var functions = [];
           $('input[name="playlist-function"]:checked').each(function() { functions.push($(this).val()) });
 
@@ -269,7 +278,7 @@
             bootbox.alert('You already have a playlist called \'' + name + '\'. Please enter a unique name.');
           }
           else {
-            billy.create_playlist(name, description, functions);
+            billy.create_playlist(name, description, identity, functions);
             $('#new-playlist-modal').modal('hide');
             $('#new-playlist-modal').find('form')[0].reset();
           }

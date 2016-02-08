@@ -812,18 +812,31 @@ billy = {};
                 else
                      self.add_playlists(data);
             })
-            .fail(function() {
-                // No remote playlists available. Create a new playlist.
-                self.create_playlist();
+            .fail(function(jqxhr) {
+                if (jqxhr.status == 404)
+                    if (getParameterByName('token')) {
+                        bootbox.alert('Failed to find Billy session');
+                        document.body.innerHTML = '';
+                    }
+                    else
+                        self.new_session(cookie_name);
+                else
+                    // No remote playlists available. Create a new playlist.
+                    self.create_playlist();
             });
         }
         else {
-            $.getJSON(self.api_session, function(data) {
-                self.token = data['token'];
-                $.cookie(cookie_name, self.token, {expires: 3650});
-                self.create_playlist();
-            })
+            self.new_session(cookie_name);
         }
+    }
+
+    billy.new_session = function(cookie_name) {
+        var self = this;
+        $.getJSON(this.api_session, function(data) {
+            self.token = data['token'];
+            $.cookie(cookie_name, self.token, {expires: 3650});
+            self.create_playlist();
+        });
     }
 
     billy.save_to_server = function() {

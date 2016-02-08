@@ -5,7 +5,6 @@ import json
 import time
 import random
 import binascii
-import threading
 import requests
 import logging
 
@@ -13,9 +12,6 @@ from sources import *
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 from pymongo.son_manipulator import SONManipulator
-from multiprocessing.dummy import Pool as ThreadPool
-
-SOURCES_CHECK_INTERVAL = 24*3600
 
 
 class ObjectIdToString(SONManipulator):
@@ -24,11 +20,9 @@ class ObjectIdToString(SONManipulator):
         return son
 
 
-class Database(threading.Thread):
+class Database(object):
 
     def __init__(self, config, db_name):
-        threading.Thread.__init__(self)
-
         self.logger = logging.getLogger(__name__)
 
         self.config = config
@@ -41,15 +35,13 @@ class Database(threading.Thread):
         self.db.add_son_manipulator(ObjectIdToString())
         self.db.tracks.ensure_index('link')
 
-        self.sources = {}
-        self.load_sources()
-
-        self.setDaemon(True)
-
         self.info = {'num_tracks': {}, 'status': 'idle'}
         for track in self.db.tracks.find({}):
             link_type = track['link'].split(':')[0]
             self.info['num_tracks'][link_type] = self.info['num_tracks'].get(link_type, 0) + 1
+
+        self.source_checker = SourceChecker(self, self.config)
+        self.source_checker.start()
 
     def set_track_callback(self, cb):
         self.add_track_cb = cb
@@ -59,68 +51,11 @@ class Database(threading.Thread):
         if not list(self.db.sources.find(source).limit(1)):
             id = self.db.sources.insert(source)
 
-            # Create source object
-            self.sources[id] = self.create_source(source)
+    def get_all_sources(self):
+        return list(self.db.sources.find({}))
 
-    def create_source(self, source_dict):
-        if not 'site' in source_dict or not 'type' in source_dict:
-            return
-
-        last_check = source_dict.get('last_check', 0)
-        if source_dict['site'] == 'youtube':
-            return YoutubeSource(source_dict['type'], source_dict['data'], self.config, last_check)
-        elif source_dict['type'] == 'rss':
-            return RSSSource(source_dict['data'], self.config, last_check)
-
-    def load_sources(self):
-        sources = list(self.db.sources.find({}))
-
-        for source_dict in sources:
-            source = self.create_source(source_dict)
-            if source is None:
-                self.logger.error('Incorrect source found in database, skipping')
-            else:
-                self.sources[source_dict['_id']] = source
-
-    def check_sources(self):
-
-        def callback(args):
-            if args is None:
-                return
-
-            source_id, source, tracks, tname = args
-            count = self.add_tracks(tracks)
-
-            self.logger.info('Got %s track(s) for source %s (thread=%s; %s are new)', len(tracks), source, tname, count)
-
-            self.db.sources.update({'_id': source_id}, {'$set': {'last_check': source.last_check}})
-
-        self.info['status'] = 'checking'
-
-        pool = ThreadPool(4)
-        for source_id, source in self.sources.iteritems():
-            pool.apply_async(self.check_source, args=(source_id, source), callback=callback)
-        pool.close()
-        pool.join()
-
-        self.info['status'] = 'idle'
-
-    def check_source(self, source_id, source):
-        now = int(time.time())
-        if now - source.last_check < SOURCES_CHECK_INTERVAL:
-            return
-
-        tracks = source.fetch(source.last_check)
-        for track in tracks:
-            track['sources'] = [source_id]
-        return source_id, source, tracks, threading.current_thread().name
-
-    def run(self):
-        while True:
-            self.logger.info('Checking sources')
-            self.check_sources()
-            self.logger.info('Finished checking sources')
-            time.sleep(SOURCES_CHECK_INTERVAL)
+    def set_source_last_check(self, source_id, last_check):
+        self.db.sources.update({'_id': source_id}, {'$set': {'last_check': last_check}})
 
     def get_session(self, token, resolve_tracks=True):
         sessions = list(self.db.sessions.find({'_id': token}).limit(1))
@@ -166,7 +101,7 @@ class Database(threading.Thread):
         for track in existing_tracks:
             for t in tracks:
                 if t['_id'] == track['_id']:
-                    self.db.tracks.update({'_id': track['_id']},{'$addToSet': {'sources': {$each: t['sources']}}}
+                    self.db.tracks.update({'_id': track['_id']},{'$addToSet': {'sources': {'$each': t['sources']}}})
                     print 'Merged sources for track', track['_id']
 
         return len(to_insert)
@@ -229,5 +164,6 @@ class Database(threading.Thread):
 
         info['num_sources'] = self.db.sources.count()
         info['num_sessions'] = self.db.sessions.count()
+        info['status'] = 'Checking' if self.source_checker.checking else 'Idle'
 
         return info

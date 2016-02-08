@@ -237,9 +237,9 @@ def main(argv):
     config = ConfigParser.ConfigParser()
     config.read(os.path.join(CURRENT_DIR, 'billy.conf'))
 
-    db = Database(config, (args.dbname or 'billy'))
-    search = Search(db, args.index or (os.path.join(CURRENT_DIR, 'data', 'index')))
-    db.set_track_callback(search.index)
+    database = Database(config, (args.dbname or 'billy'))
+    search = Search(database, args.index or (os.path.join(CURRENT_DIR, 'data', 'index')))
+    database.set_track_callback(search.index)
 
     # Import tracks
     if args.tracks:
@@ -249,10 +249,10 @@ def main(argv):
             for track in tracks:
                 waveform = track.pop('waveform', None)
 
-                track_id = db.add_track(track)
+                track_id = database.add_track(track)
 
                 if track_id and waveform is not None:
-                    db.add_waveform(track_id, waveform)
+                    database.add_waveform(track_id, waveform)
             logger.info('Finished importing tracks')
 
     # Import sources
@@ -261,7 +261,7 @@ def main(argv):
             logger.info('Importing sources')
             sources = json.load(fp)
             for source in sources:
-                track_id = db.add_source(source)
+                track_id = database.add_source(source)
             logger.info('Finished importing sources')
 
     # Import users
@@ -270,11 +270,10 @@ def main(argv):
             logger.info('Importing users')
             users = json.load(fp)
             for user in users:
-                db.add_user(user['name'], user['password'])
+                database.add_user(user['name'], user['password'])
             logger.info('Finished importing users')
 
-    db.start()
-    api = API(db, search, config)
+    api = API(database, search, config)
 
     if args.dir:
         html_dir = os.path.abspath(args.dir)

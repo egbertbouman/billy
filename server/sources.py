@@ -8,14 +8,18 @@ import feedparser
 import datetime
 import dateutil.tz
 import logging
+import threading
 
 from datetime import datetime
 from dateutil.parser import parse
 from lxml.cssselect import CSSSelector
 from lxml.etree import XMLSyntaxError
 from urlparse import urlparse, parse_qs
+from multiprocessing.dummy import Pool as ThreadPool
 
 feedparser._HTMLSanitizer.acceptable_elements.update(['iframe'])
+
+SOURCES_CHECK_INTERVAL = 24*3600
 
 YOUTUBE_CHANNEL_URL = 'https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id={id}&key={api_key}'
 YOUTUBE_PLAYLISTITEMS_URL = 'https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId={id}&page_token&pageToken={token}&maxResults=50&key={api_key}'
@@ -67,6 +71,82 @@ def request_soundcloud_id(url, api_key):
                 return str(response_dict['id'])
 
 
+class SourceChecker(threading.Thread):
+
+    def __init__(self, database, config):
+        threading.Thread.__init__(self)
+
+        self.logger = logging.getLogger(__name__)
+
+        self.database = database
+        self.config = config
+        self.checking = False
+        self.sources = {}
+        self.load_sources()
+
+        self.setDaemon(True)
+
+    def load_sources(self):
+        sources = self.database.get_all_sources()
+
+        for source_dict in sources:
+            source = self.create_source(source_dict)
+            if source is None:
+                self.logger.error('Incorrect source found in database, skipping')
+            else:
+                self.sources[source_dict['_id']] = source
+
+    def create_source(self, source_dict):
+        if not 'site' in source_dict or not 'type' in source_dict:
+            return
+
+        last_check = source_dict.get('last_check', 0)
+        if source_dict['site'] == 'youtube':
+            return YoutubeSource(source_dict['type'], source_dict['data'], self.config, last_check)
+        elif source_dict['type'] == 'rss':
+            return RSSSource(source_dict['data'], self.config, last_check)
+
+    def check_sources(self):
+
+        def callback(args):
+            if args is None:
+                return
+
+            source_id, source, tracks, tname = args
+            count = self.database.add_tracks(tracks)
+
+            self.logger.info('Got %s track(s) for source %s (thread=%s; %s are new)', len(tracks), source, tname, count)
+
+            self.database.set_source_last_check(source_id, source.last_check)
+
+        self.checking = True
+
+        pool = ThreadPool(4)
+        for source_id, source in self.sources.iteritems():
+            pool.apply_async(self.check_source, args=(source_id, source), callback=callback)
+        pool.close()
+        pool.join()
+
+        self.checking = False
+
+    def check_source(self, source_id, source):
+        now = int(time.time())
+        if now - source.last_check < SOURCES_CHECK_INTERVAL:
+            return
+
+        tracks = source.fetch(source.last_check)
+        for track in tracks:
+            track['sources'] = [source_id]
+        return source_id, source, tracks, threading.current_thread().name
+
+    def run(self):
+        while True:
+            self.logger.info('Checking sources')
+            self.check_sources()
+            self.logger.info('Finished checking sources')
+            time.sleep(SOURCES_CHECK_INTERVAL)
+
+
 class RSSSource(object):
 
     def __init__(self, url, config, last_check=0):
@@ -102,7 +182,7 @@ class RSSSource(object):
                 audio_links.extend(self.extract_audio_links(entry['description']))
 
             for audio_link in audio_links:
-                self.logger.info('Found link in RSS source: %s - %s', entry['title'], audio_link)
+                self.logger.debug('Found link in RSS source: %s - %s', entry['title'], audio_link)
                 item = {'title': entry['title'],
                         'link': audio_link,
                         'ts': epoch_time}

@@ -112,7 +112,7 @@ class Database(threading.Thread):
 
         tracks = source.fetch(source.last_check)
         for track in tracks:
-            track['source'] = source_id
+            track['sources'] = [source_id]
         return source_id, source, tracks, threading.current_thread().name
 
     def run(self):
@@ -147,43 +147,27 @@ class Database(threading.Thread):
         self.db.sessions.update({'_id': token}, {'$set': {'playlists': playlists}})
 
     def add_tracks(self, tracks):
-        existing_tracks = list(self.db.tracks.find({'link': {'$in': [track['link'] for track in tracks]}}, {'link': 1}))
+        existing_tracks = list(self.db.tracks.find({'link': {'$in': [track['link'] for track in tracks]}}, {'link': 1, 'sources': 1}))
         existing_links = [track['link'] for track in existing_tracks]
 
         to_insert = [track for track in tracks if track['link'] not in existing_links]
 
-        if not to_insert:
-            return 0
+        if to_insert:
+            self.db.tracks.insert(to_insert)
 
-        for track in to_insert:
-            # Try to split the title into artist and name components
-            if track['title'].count(' - ') == 1:
-                track['artist_name'], track['track_name'] = track['title'].split(' - ', 1)
+            for track in to_insert:
+                # Update db stats
+                link_type = track['link'].split(':')[0]
+                self.info['num_tracks'][link_type] = self.info['num_tracks'].get(link_type, 0) + 1
 
-            if 'musicinfo' not in track:
-                # Get tags from last.fm
-                # Disabled, for now
-                if False and 'artist_name' in track:
-                    params = {'method': 'track.gettoptags',
-                              'artist': track['artist_name'],
-                              'track': track['track_name'],
-                              'api_key': self.config.get('sources', 'lastfm_api_key'),
-                              'format': 'json',
-                              'limit': 20}
-                    response = requests.get('https://ws.audioscrobbler.com/2.0', params=params).json()
-                    top_tags = [item['name'] for item in response.get('toptags', {}).get('tag', []) if item['count'] > 20]
-                else:
-                    top_tags = []
-                track['musicinfo'] = {'tags': {'vartags': top_tags}}
+                self.add_track_cb(track)
 
-        self.db.tracks.insert(to_insert)
-
-        for track in to_insert:
-            # Update db stats
-            link_type = track['link'].split(':')[0]
-            self.info['num_tracks'][link_type] = self.info['num_tracks'].get(link_type, 0) + 1
-
-            self.add_track_cb(track)
+        # Merge sources
+        for track in existing_tracks:
+            for t in tracks:
+                if t['_id'] == track['_id']:
+                    self.db.tracks.update({'_id': track['_id']},{'$addToSet': {'sources': {$each: t['sources']}}}
+                    print 'Merged sources for track', track['_id']
 
         return len(to_insert)
 

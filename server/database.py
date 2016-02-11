@@ -9,6 +9,7 @@ import requests
 import logging
 
 from sources import *
+from metadata import *
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 from pymongo.son_manipulator import SONManipulator
@@ -43,6 +44,9 @@ class Database(object):
         self.source_checker = SourceChecker(self, self.config)
         self.source_checker.start()
 
+        self.metadata_checker = MetadataChecker(self, self.config)
+        self.metadata_checker.start()
+
     def set_track_callback(self, cb):
         self.add_track_cb = cb
 
@@ -56,6 +60,9 @@ class Database(object):
 
     def set_source_last_check(self, source_id, last_check):
         self.db.sources.update({'_id': source_id}, {'$set': {'last_check': last_check}})
+
+    def get_all_sessions(self):
+        return list(self.db.sessions.find({}))
 
     def get_session(self, token, resolve_tracks=True):
         sessions = list(self.db.sessions.find({'_id': token}).limit(1))
@@ -82,7 +89,7 @@ class Database(object):
         self.db.sessions.update({'_id': token}, {'$set': {'playlists': playlists}})
 
     def add_tracks(self, tracks):
-        existing_tracks = list(self.db.tracks.find({'link': {'$in': [track['link'] for track in tracks]}}, {'link': 1, 'sources': 1}))
+        existing_tracks = list(self.db.tracks.find({'link': {'$in': [track['link'] for track in tracks]}}, {'link': 1, 'sources': 1, '_id': 1}))
         existing_links = [track['link'] for track in existing_tracks]
 
         to_insert = [track for track in tracks if track['link'] not in existing_links]
@@ -95,14 +102,15 @@ class Database(object):
                 link_type = track['link'].split(':')[0]
                 self.info['num_tracks'][link_type] = self.info['num_tracks'].get(link_type, 0) + 1
 
-                self.add_track_cb(track)
+                if self.add_track_cb:
+                    self.add_track_cb(track)
 
         # Merge sources
         for track in existing_tracks:
             for t in tracks:
                 if t['_id'] == track['_id']:
                     self.db.tracks.update({'_id': track['_id']},{'$addToSet': {'sources': {'$each': t['sources']}}})
-                    print 'Merged sources for track', track['_id']
+                    self.logger.info('Merged sources for track %s', track['_id'])
 
         return len(to_insert)
 
@@ -115,6 +123,9 @@ class Database(object):
         tracks = list(self.db.tracks.find({'_id': track_id}))
         return tracks[0] if tracks else None
 
+    def get_tracks_from_source(self, source_id):
+        return list(self.db.tracks.find({'sources': {'$elemMatch': {'$eq': source_id}}}))
+
     def get_random_tracks(self, limit=20):
         tracks = []
         for _ in range(limit):
@@ -125,9 +136,10 @@ class Database(object):
 
     def update_function_counter(self, track_id, function, delta):
         track = self.get_track(track_id)
-        musicinfo = track['musicinfo']
+        musicinfo = track.get('musicinfo', {})
         musicinfo['functions'] = musicinfo.get('functions', {})
         musicinfo['functions'][function] = musicinfo['functions'].get(function, 0) + delta
+        track['musicinfo'] = musicinfo
         self.db.tracks.update({'_id': track_id}, {'$set': {'musicinfo': musicinfo}})
 
     def add_clicklog(self, clicklog):

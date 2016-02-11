@@ -3,101 +3,127 @@ import os
 import sys
 import json
 import time
-import urllib
 import argparse
-import requests
-import cherrypy
-import binascii
 import ConfigParser
 import logging
 import logging.config
 
-from database import *
-from search import *
+from twisted.web.server import Site
+from twisted.web.resource import Resource
+from twisted.internet import reactor
+from twisted.web.static import File
+from twisted.web.guard import HTTPAuthSessionWrapper, DigestCredentialFactory
+
+from search import Search
+from database import Database
 from pymongo import MongoClient
 
 CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
-class API(object):
+def json_out(f):
+    def wrap(*args, **kwargs):
+        request = args[1]
+        request.responseHeaders.addRawHeader('content-type', 'application/json')
+        response = f(*args, **kwargs)
+        return json.dumps(response)
+    return wrap
 
-    def __init__(self, database, search, config):
+
+class APIResource(Resource):
+
+    def __init__(self, *args):
+        Resource.__init__(self)
+        self.putChild('session', SessionHandler(*args))
+        self.putChild('playlists', PlaylistsHandler(*args))
+        self.putChild('tracks', TracksHandler(*args))
+        self.putChild('recommend', RecommendHandler(*args))
+        self.putChild('clicklog', ClicklogHandler(*args))
+        self.putChild('waveform', WaveformHandler(*args))
+        self.putChild('info', InfoHandler(*args))
+
+
+class BaseHandler(Resource):
+    isLeaf = True
+
+    def __init__(self, config, database, search):
+        Resource.__init__(self)
+        self.config = config
         self.database = database
         self.search = search
-        self.config = config
 
-    def get_session(self, token, resolve_tracks=True):
-        return self.database.get_session(token, resolve_tracks)
-
-    def error(self, message, status_code):
-        cherrypy.response.status = status_code
+    def error(self, request, message, status_code):
+        request.setResponseCode(status_code)
         return {'error': message}
 
-    @cherrypy.expose
-    @cherrypy.tools.json_out()
-    def session(self, **kwargs):
+
+class SessionHandler(BaseHandler):
+
+    @json_out 
+    def render_GET(self, request):
         token = self.database.create_session()
         return {'token': token}
 
-    @cherrypy.expose
-    @cherrypy.tools.json_out()
-    def playlists(self, token=None, search=None, **kwargs):
-        if cherrypy.request.method == 'OPTIONS':
-            cherrypy.response.headers['Connection'] = 'keep-alive'
-            cherrypy.response.headers['Access-Control-Max-Age'] = '1440'
-            cherrypy.response.headers['Access-Control-Allow-Headers'] = 'Authorization,X-Auth-Token,Content-Type,Accept'
-            return {}
 
-        if bool(token) == bool(search):
-            return self.error('please use either the token or the search param', 400)
+class PlaylistsHandler(BaseHandler):
 
+    @json_out
+    def render_GET(self, request):
+        token = request.args['token'][0] if 'token' in request.args else None
         if token:
-            session = self.get_session(token)
+            session = self.database.get_session(token)
 
             if session is None:
-                return self.error('cannot find session', 404)
+                return self.error(request, 'cannot find session', 404)
 
-            if cherrypy.request.method == 'GET':
-                playlists = session['playlists']
-                return session['playlists']
+            playlists = session['playlists']
+            return session['playlists']
 
-            elif cherrypy.request.method == 'POST':
-                length = int(cherrypy.request.headers['Content-Length'])
-                body = cherrypy.request.body.read(length)
+    @json_out
+    def render_POST(self, request):
+        token = request.args['token'][0] if 'token' in request.args else None
+        session = self.database.get_session(token)
+        if session is None:
+            return self.error(request, 'cannot find session', 404)
 
-                playlists_new = json.loads(body)
-                tracks_new = set((p['name'], track_id) for p in playlists_new.values() for track_id in p['tracks'])
+        body = request.content.read()
 
-                playlists_old = session['playlists']
-                tracks_old = set((p['name'], t['_id']) for p in playlists_old.values() for t in p['tracks'])
+        playlists_new = json.loads(body)
+        tracks_new = set((p['name'], track_id) for p in playlists_new.values() for track_id in p['tracks'])
 
-                tracks_added = tracks_new - tracks_old
-                tracks_removed = tracks_old - tracks_new
+        playlists_old = session['playlists']
+        tracks_old = set((p['name'], t['_id']) for p in playlists_old.values() for t in p['tracks'])
 
-                for playlist_name, track_id in tracks_added:
-                    for function in playlists_new[playlist_name].get('functions', []):
-                        self.database.update_function_counter(track_id, function, 1)
+        tracks_added = tracks_new - tracks_old
+        tracks_removed = tracks_old - tracks_new
 
-                for playlist_name, track_id in tracks_removed:
-                    for function in playlists_old[playlist_name].get('functions', []):
-                        self.database.update_function_counter(track_id, function, -1)
+        for playlist_name, track_id in tracks_added:
+            for function in playlists_new[playlist_name].get('functions', []):
+                self.database.update_function_counter(track_id, function, 1)
 
-                self.database.update_session(token, playlists_new)
-                return {}
-        else:
-            if cherrypy.request.method == 'GET':
-                return self.error('not implemented yet', 404)
+        for playlist_name, track_id in tracks_removed:
+            for function in playlists_old[playlist_name].get('functions', []):
+                self.database.update_function_counter(track_id, function, -1)
 
-    @cherrypy.expose
-    @cherrypy.tools.json_out()
-    def tracks(self, query=None, id=None, offset=0, **kwargs):
+        self.database.update_session(token, playlists_new)
+        return {}
+
+
+class TracksHandler(BaseHandler):
+
+    @json_out
+    def render_GET(self, request):
+        query = request.args['query'][0] if 'query' in request.args else None
+        id = request.args['id'][0] if 'id' in request.args else None
+        offset = request.args['offset'][0] if 'offset' in request.args else 0
+
         if bool(query) == bool(id):
-            return self.error('please use either the query or the id param', 400)
+            return self.error(request, 'please use either the query or the id param', 400)
 
         if id:
             track = self.database.get_track(id)
             if track is None:
-                return self.error('track does not exist', 404)
+                return self.error(request, 'track does not exist', 404)
             return track
 
         results = self.search.search(query)
@@ -107,19 +133,25 @@ class API(object):
         page_size = int(self.config.get('api', 'page_size'))
 
         if offset > len(results):
-            return self.error('offset is larger then result-set', 404)
+            return self.error(request, 'offset is larger then result-set', 404)
         else:
             return {'offset': offset,
                     'page_size': page_size,
                     'total': len(results),
                     'results': results[offset:offset+page_size]}
 
-    @cherrypy.expose
-    @cherrypy.tools.json_out()
-    def recommend(self, token, name, offset=0, **kwargs):
-        session = self.get_session(token)
+
+class RecommendHandler(BaseHandler):
+
+    @json_out
+    def render_GET(self, request):
+        token = request.args['token'][0] if 'token' in request.args else None
+        name = request.args['name'][0] if 'name' in request.args else None
+        offset = request.args['offset'][0] if 'offset' in request.args else 0
+
+        session = self.database.get_session(token)
         if session is None:
-            return self.error('cannot find session', 404)
+            return self.error(request, 'cannot find session', 404)
 
         playlists = session['playlists']
         playlist = None
@@ -130,7 +162,7 @@ class API(object):
 
         playlist = playlist or playlists.get(name, None)
         if playlist is None:
-            return self.error('cannot find playlist', 404)
+            return self.error(request, 'cannot find playlist', 404)
 
         results = self.search.recommend(playlist)
 
@@ -142,71 +174,67 @@ class API(object):
             return {'offset': 0,
                     'total': len(results),
                     'results': results}
+
         elif offset > len(results):
-            return self.error('offset is larger then result-set', 404)
+            return self.error(request, 'offset is larger then result-set', 404)
+
         else:
             return {'offset': offset,
                     'page_size': page_size,
                     'total': len(results),
                     'results': results[offset:offset+page_size]}
 
-    @cherrypy.expose
-    @cherrypy.tools.json_out()
-    def clicklog(self, token=None, limit=0, **kwargs):
-        if cherrypy.request.method == 'OPTIONS':
-            cherrypy.response.headers['Connection'] = 'keep-alive'
-            cherrypy.response.headers['Access-Control-Max-Age'] = '1440'
-            cherrypy.response.headers['Access-Control-Allow-Headers'] = 'Authorization,X-Auth-Token,Content-Type,Accept'
-            return {}
 
-        elif cherrypy.request.method == 'GET':
-            # Make sure the user is authorized (HTTP digest authentication)
-            try:
-                users = {user['name']: user['password'] for user in self.database.get_users()}
-                cherrypy.lib.auth.digest_auth('server.py', users)
-            except cherrypy.HTTPError, e:
-                cherrypy.serving.response.headers['Access-Control-Expose-Headers'] = 'Www-Authenticate'
-                raise e
+class ClicklogHandler(BaseHandler):
 
-            clicklog = list(self.database.get_clicklog(int(limit)))
-            return clicklog
+    @json_out
+    def render_GET(self, request):
+        limit = request.args['limit'][0] if 'limit' in request.args else 0
 
-        elif cherrypy.request.method == 'POST':
-            session = self.get_session(token, resolve_tracks=False)
-            if session is None:
-                return self.error('cannot find session', 404)
+        # Make sure the user is authorized (HTTP digest authentication)
+        authorized = any([user['name'] == request.getUser() and user['password'] == request.getPassword() for user in self.database.get_users()])
+        if not authorized:
+            request.responseHeaders.addRawHeader('WWW-Authenticate', 'Basic realm="Billy"')
+            return self.error(request, 'authentication failed', 401)
 
-            length = int(cherrypy.request.headers['Content-Length'])
-            body = cherrypy.request.body.read(length)
-            json_body = json.loads(body)
+        clicklog = list(self.database.get_clicklog(int(limit)))
+        return clicklog
 
-            json_body['token'] = token
-            json_body['user-agent'] = cherrypy.request.headers.get('User-Agent', '')
-            json_body['ip'] = cherrypy.request.remote.ip
-            json_body['time'] = int(time.time())
+    @json_out
+    def render_POST(self, request):
+        token = request.args['token'][0] if 'token' in request.args else None
+        session = self.database.get_session(token)
+        if session is None:
+            return self.error(request, 'cannot find session', 404)
 
-            self.database.add_clicklog(json_body)
+        body = request.content.read()
+        json_body = json.loads(body)
 
-    @cherrypy.expose
-    @cherrypy.tools.json_out()
-    def waveform(self, id, **kwargs):
+        json_body['token'] = token
+        json_body['user-agent'] = request.getAllHeaders().get('user-agent', '')
+        json_body['ip'] = request.getClientIP()
+        json_body['time'] = int(time.time())
+
+        self.database.add_clicklog(json_body)
+
+
+class WaveformHandler(BaseHandler):
+
+    @json_out
+    def render_GET(self, request):
+        id = request.args['id'][0] if 'id' in request.args else None
         waveform = self.database.get_waveform(id)
         if waveform is None:
-            return self.error('cannot find waveform', 404)
+            return self.error(request, 'cannot find waveform', 404)
 
         return {'waveform': waveform['waveform']}
 
-    @cherrypy.expose
-    @cherrypy.tools.json_out()
-    def info(self, **kwargs):
+
+class InfoHandler(BaseHandler):
+
+    @json_out
+    def render_GET(self, request):
         return {'info': self.database.get_info()}
-
-
-class StaticContent(object):
-
-    @cherrypy.expose
-    def index(self, **args):
-        raise cherrypy.HTTPRedirect("index.html")
 
 
 def main(argv):
@@ -226,10 +254,6 @@ def main(argv):
     except argparse.ArgumentError:
         parser.print_help()
         sys.exit(2)
-
-    def CORS():
-        cherrypy.response.headers["Access-Control-Allow-Origin"] = "*"
-    cherrypy.tools.CORS = cherrypy.Tool('before_handler', CORS)
 
     logging.config.fileConfig(os.path.join(CURRENT_DIR, 'logger.conf'))
     logger = logging.getLogger(__name__)
@@ -273,34 +297,19 @@ def main(argv):
                 database.add_user(user['name'], user['password'])
             logger.info('Finished importing users')
 
-    api = API(database, search, config)
+    root = Resource()
 
     if args.dir:
         html_dir = os.path.abspath(args.dir)
         if not os.path.exists(html_dir):
             raise IOError('directory does not exist')
-        config = {'/': {'tools.staticdir.root': os.path.abspath(args.dir),
-                        'tools.staticdir.on': True,
-                        'tools.staticdir.dir': "",
-                        'response.headers.connection': "close"}}
-        app = cherrypy.tree.mount(StaticContent(), '/billy', config)
+        root.putChild('billy', File(html_dir))
 
-    config = {'/': {'log.screen': False,
-                    'log.access_file': '',
-                    'log.error_file': '',
-                    'tools.CORS.on': True,
-                    'tools.response_headers.on': True,
-                    'tools.response_headers.headers': [('Content-Type', 'text/plain')]}}
+    root.putChild('api', APIResource(config, database, search))
 
-    app = cherrypy.tree.mount(api, '/api', config)
-
-    server = cherrypy._cpserver.Server()
-    server.socket_port = int(args.port)
-    server.max_request_body_size = 10485760
-    server._socket_host = '0.0.0.0'
-    server.thread_pool = 5
-    server.subscribe()
-    server.start()
+    factory = Site(root)
+    reactor.listenTCP(int(args.port), factory)
+    reactor.run()
 
 
 if __name__ == "__main__":

@@ -1,21 +1,17 @@
 import re
-import json
 import time
 import urllib
-import requests
 import lxml.html
 import feedparser
-import datetime
-import dateutil.tz
 import logging
-import threading
 
-from datetime import datetime
+from util import *
 from dateutil.parser import parse
 from lxml.cssselect import CSSSelector
 from lxml.etree import XMLSyntaxError
 from urlparse import urlparse, parse_qs
-from multiprocessing.dummy import Pool as ThreadPool
+from twisted.internet import reactor, defer
+from twisted.internet.defer import inlineCallbacks, Deferred, DeferredList
 
 feedparser._HTMLSanitizer.acceptable_elements.update(['iframe'])
 
@@ -25,16 +21,6 @@ YOUTUBE_CHANNEL_URL = 'https://www.googleapis.com/youtube/v3/channels?part=conte
 YOUTUBE_PLAYLISTITEMS_URL = 'https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId={id}&page_token&pageToken={token}&maxResults=50&key={api_key}'
 YOUTUBE_PLAYLIST_URL = 'https://www.googleapis.com/youtube/v3/playlistItems?key={api_key}&playlistId={id}&part=snippet&pageToken={token}&maxResults=50&order=date'
 SOUNDCLOUD_RESOLVE_URL = 'https://api.soundcloud.com/resolve.json?url={url}&client_id={api_key}'
-
-
-def ts_to_rfc3339(ts):
-    dt = datetime.utcfromtimestamp(ts)
-    return dt.isoformat("T") + "Z"
-
-
-def datetime_to_ts(dt):
-    epoch_dt = datetime(1970, 1, 1, tzinfo=dateutil.tz.tzoffset(None, 0))
-    return int((dt - epoch_dt).total_seconds())
 
 
 def extract_youtube_id(url):
@@ -56,35 +42,34 @@ def extract_soundcloud_id(url):
             return str(re.findall(r'\d+', url[index + 8:])[0])
 
 
+@inlineCallbacks
 def request_soundcloud_id(url, api_key):
     url = url.replace('https://w.soundcloud.com/player/?url=', '')
 
-    response = requests.get(SOUNDCLOUD_RESOLVE_URL.format(url=url.encode('utf-8'), api_key=api_key))
-    if response.status_code == 200:
-        try:
-            response_dict = response.json()
-        except ValueError:
-            logger = logging.getLogger(__name__)
-            logger.error('Could not get soundcloud id for: %s', url)
-        else:
-            if isinstance(response_dict, dict) and response_dict.get('kind', '') == 'track':
-                return str(response_dict['id'])
+    response = yield get_request(SOUNDCLOUD_RESOLVE_URL.format(url=url, api_key=api_key))
+
+    try:
+        response_dict = response.json
+    except ValueError:
+        logger = logging.getLogger(__name__)
+        logger.error('Could not get soundcloud id for: %s', url)
+    else:
+        if isinstance(response_dict, dict) and response_dict.get('kind', None) == 'track':
+            defer.returnValue(response_dict['id'])
 
 
-class SourceChecker(threading.Thread):
+class SourceChecker(object):
 
     def __init__(self, database, config):
-        threading.Thread.__init__(self)
-
         self.logger = logging.getLogger(__name__)
 
         self.database = database
         self.config = config
         self.checking = False
         self.sources = {}
-        self.load_sources()
 
-        self.setDaemon(True)
+        self.load_sources()
+        self.check_loop()
 
     def load_sources(self):
         sources = self.database.get_all_sources()
@@ -106,45 +91,38 @@ class SourceChecker(threading.Thread):
         elif source_dict['type'] == 'rss':
             return RSSSource(source_dict['data'], self.config, last_check)
 
-    def check_sources(self):
+    @inlineCallbacks
+    def check_sources(self, source_dict):
+        def callback(tracks):
+            for track in tracks:
+                track['sources'] = [source_id]
 
-        def callback(args):
-            if args is None:
-                return
-
-            source_id, source, tracks, tname = args
             count = self.database.add_tracks(tracks)
-
-            self.logger.info('Got %s track(s) for source %s (thread=%s; %s are new)', len(tracks), source, tname, count)
-
+            self.logger.info('Got %s track(s) for source %s (%s are new)', len(tracks), source, count)
             self.database.set_source_last_check(source_id, source.last_check)
 
+        for source_id, source in source_dict.iteritems():
+            d = source.fetch(source.last_check)
+            d.addCallback(callback)
+            yield d
+
+    @inlineCallbacks
+    def check_loop(self):
         self.checking = True
+        self.logger.info('Checking sources')
 
-        pool = ThreadPool(4)
-        for source_id, source in self.sources.iteritems():
-            pool.apply_async(self.check_source, args=(source_id, source), callback=callback)
-        pool.close()
-        pool.join()
-
-        self.checking = False
-
-    def check_source(self, source_id, source):
         now = int(time.time())
-        if now - source.last_check < SOURCES_CHECK_INTERVAL:
-            return
+        sources = [(source_id, source) for source_id, source in self.sources.iteritems() if now - source.last_check >= SOURCES_CHECK_INTERVAL]
+        num_sources = len(sources)
+        num_chunks = int((num_sources / 4.0) + 1)
+        deferreds = []
+        for i in xrange(0, num_sources, num_chunks):
+            deferreds.append(self.check_sources(dict(sources[i:i+num_chunks])))
+        yield DeferredList(deferreds)
 
-        tracks = source.fetch(source.last_check)
-        for track in tracks:
-            track['sources'] = [source_id]
-        return source_id, source, tracks, threading.current_thread().name
-
-    def run(self):
-        while True:
-            self.logger.info('Checking sources')
-            self.check_sources()
-            self.logger.info('Finished checking sources')
-            time.sleep(SOURCES_CHECK_INTERVAL)
+        self.logger.info('Finished checking sources')
+        self.checking = False
+        reactor.callLater(SOURCES_CHECK_INTERVAL, self.check_loop)
 
 
 class RSSSource(object):
@@ -156,10 +134,12 @@ class RSSSource(object):
         self.config = config
         self.last_check = last_check
 
+    @inlineCallbacks
     def fetch(self, since=0):
         results = []
 
-        feed = feedparser.parse(self.url)
+        response = yield get_request(self.url)
+        feed = feedparser.parse(response.content)
 
         for entry in feed.get('entries', []):
             epoch_time = int(time.mktime(entry['published_parsed'])) if 'published_parsed' in entry else -1
@@ -168,18 +148,16 @@ class RSSSource(object):
 
             audio_links = []
             for link in entry['links']:
-                if link['type'] == 'audio/mpeg':
+                if link.get('type', None) == 'audio/mpeg':
                     audio_links.append(link['href'])
                 else:
-                    try:
-                        response = requests.get(link['href'])
-                    except:
-                        self.logger.error('Failed to GET %s', link['href'])
-                    else:
-                        audio_links.extend(self.extract_audio_links(response.content))
+                    response = yield get_request(link['href'])
+                    more_links = yield self.extract_audio_links(response.content)
+                    audio_links.extend(more_links)
 
             if 'description' in entry:
-                audio_links.extend(self.extract_audio_links(entry['description']))
+                more_links = yield self.extract_audio_links(entry['description'])
+                audio_links.extend(more_links)
 
             for audio_link in audio_links:
                 self.logger.debug('Found link in RSS source: %s - %s', entry['title'], audio_link)
@@ -194,8 +172,9 @@ class RSSSource(object):
 
         self.last_check = int(time.time())
 
-        return results
+        defer.returnValue(results)
 
+    @inlineCallbacks
     def extract_audio_links(self, text):
         # Extract Youtube/Soundcloud id's from iframes/anchors
         audio_links = []
@@ -234,11 +213,11 @@ class RSSSource(object):
 
                 elif url_split[2].endswith('soundcloud.com'):
                     api_key = self.config.get('sources', 'soundcloud_api_key')
-                    soundcloud_id = extract_soundcloud_id(url) or request_soundcloud_id(url, api_key)
+                    soundcloud_id = extract_soundcloud_id(url) or (yield request_soundcloud_id(url, api_key))
                     if soundcloud_id:
-                        audio_links.append('soundcloud:' + soundcloud_id)
+                        audio_links.append('soundcloud:' + str(soundcloud_id))
 
-        return audio_links
+        defer.returnValue(audio_links)
 
     def __str__(self):
         return "RSSSource_%s" % self.url
@@ -272,25 +251,26 @@ class YoutubeSource(object):
             self.last_check = int(time.time())
             return results
 
+    @inlineCallbacks
     def _fetch_channel(self, since=0):
         results = []
         api_key = self.config.get('sources', 'youtube_api_key')
 
-        response = requests.get(YOUTUBE_CHANNEL_URL.format(api_key=api_key, id=self.id))
-        response_dict = response.json()
+        response = yield get_request(YOUTUBE_CHANNEL_URL.format(api_key=api_key, id=self.id))
+        response_dict = response.json
 
-        if self.has_error(response_dict):
-            return results
+        if self.has_error(response_dict) or len(response_dict['items']) == 0:
+            defer.returnValue(results)
 
         uploads = response_dict['items'][0]['contentDetails']['relatedPlaylists']['uploads']
         page_token = ''
 
         while page_token is not None:
-            response = requests.get(YOUTUBE_PLAYLISTITEMS_URL.format(api_key=api_key, id=uploads, token=page_token))
-            response_dict = response.json()
+            response = yield get_request(YOUTUBE_PLAYLIST_URL.format(api_key=api_key, id=uploads, token=page_token))
+            response_dict = response.json
 
             if self.has_error(response_dict):
-                return results
+                defer.returnValue(results)
 
             items = response_dict['items']
 
@@ -300,7 +280,7 @@ class YoutubeSource(object):
                 ts = datetime_to_ts(parse(snippet['publishedAt']))
                 if ts < since:
                     # We don't care about anything older then this
-                    return results
+                    defer.returnValue(results)
 
                 results.append({'title': snippet['title'],
                                 'link': 'youtube:' + snippet['resourceId']['videoId'],
@@ -309,8 +289,9 @@ class YoutubeSource(object):
 
             page_token = response_dict.get('nextPageToken', None)
 
-        return results
+        defer.returnValue(results)
 
+    @inlineCallbacks
     def _fetch_playlist(self, since=0):
         results = []
 
@@ -319,11 +300,11 @@ class YoutubeSource(object):
 
         while page_token is not None:
             url = YOUTUBE_PLAYLIST_URL.format(api_key=api_key, id=self.id, token=page_token)
-            response = requests.get(url)
-            response_dict = response.json()
+            response = yield get_request(url)
+            response_dict = response.json
 
             if self.has_error(response_dict):
-                return results
+                defer.returnValue(results)
 
             items = response_dict['items']
             for item in items:
@@ -334,7 +315,7 @@ class YoutubeSource(object):
                 ts = datetime_to_ts(parse(snippet['publishedAt']))
                 if ts < since:
                     # We don't care about anything older then this
-                    return results
+                    defer.returnValue(results)
 
                 results.append({'title': snippet['title'],
                                 'link': 'youtube:' + snippet['resourceId']['videoId'],
@@ -343,7 +324,7 @@ class YoutubeSource(object):
 
             page_token = response_dict.get('nextPageToken', None)
 
-        return results
+        defer.returnValue(results)
 
     def __str__(self):
         return "YoutubeSource_%s_%s" % (self.type, self.id)

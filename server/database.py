@@ -13,6 +13,8 @@ from metadata import *
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 from pymongo.son_manipulator import SONManipulator
+from twisted.internet.defer import inlineCallbacks
+from twisted.internet import reactor, defer
 
 
 class ObjectIdToString(SONManipulator):
@@ -41,11 +43,12 @@ class Database(object):
             link_type = track['link'].split(':')[0]
             self.info['num_tracks'][link_type] = self.info['num_tracks'].get(link_type, 0) + 1
 
-        self.source_checker = SourceChecker(self, self.config)
-        self.source_checker.start()
+        self.source_checker = None
+        self.metadata_checker = None
 
+    def start(self):
+        self.source_checker = SourceChecker(self, self.config)
         self.metadata_checker = MetadataChecker(self, self.config)
-        self.metadata_checker.start()
 
     def set_track_callback(self, cb):
         self.add_track_cb = cb
@@ -97,20 +100,20 @@ class Database(object):
         if to_insert:
             self.db.tracks.insert(to_insert)
 
+            # Update db stats
             for track in to_insert:
-                # Update db stats
                 link_type = track['link'].split(':')[0]
                 self.info['num_tracks'][link_type] = self.info['num_tracks'].get(link_type, 0) + 1
 
-                if self.add_track_cb:
-                    self.add_track_cb(track)
+            if self.add_track_cb:
+                self.add_track_cb(to_insert)
 
         # Merge sources
         for track in existing_tracks:
             for t in tracks:
-                if t['_id'] == track['_id']:
+                if t['link'] == track['link']:
                     self.db.tracks.update({'_id': track['_id']},{'$addToSet': {'sources': {'$each': t['sources']}}})
-                    self.logger.info('Merged sources for track %s', track['_id'])
+                    self.logger.debug('Merged sources for track %s', track['_id'])
 
         return len(to_insert)
 
@@ -176,6 +179,6 @@ class Database(object):
 
         info['num_sources'] = self.db.sources.count()
         info['num_sessions'] = self.db.sessions.count()
-        info['status'] = 'Checking' if self.source_checker.checking else 'Idle'
+        info['status'] = 'checking' if self.source_checker.checking else 'idle'
 
         return info

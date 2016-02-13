@@ -297,6 +297,7 @@ def main(argv):
                 database.add_user(user['name'], user['password'])
             logger.info('Finished importing users')
 
+    database.start()
     root = Resource()
 
     if args.dir:

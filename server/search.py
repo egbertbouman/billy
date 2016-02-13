@@ -41,8 +41,6 @@ class Search(object):
         if not os.path.exists(self.index_dir):
             os.makedirs(self.index_dir)
 
-        lucene.getVMEnv().attachCurrentThread()
-
         dir = SimpleFSDirectory(File(self.index_dir))
 
         config = IndexWriterConfig(Version.LUCENE_CURRENT, self.analyzer)
@@ -87,8 +85,6 @@ class Search(object):
     def search(self, query, max_results=200):
         if not os.path.exists(self.index_dir) or not os.listdir(self.index_dir):
             return []
-
-        lucene.getVMEnv().attachCurrentThread()
 
         dir = SimpleFSDirectory(File(self.index_dir)) if LUCENE3 else DirectoryReader.open(SimpleFSDirectory(File(self.index_dir)))
         searcher = IndexSearcher(dir)

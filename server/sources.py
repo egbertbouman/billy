@@ -17,10 +17,10 @@ feedparser._HTMLSanitizer.acceptable_elements.update(['iframe'])
 
 SOURCES_CHECK_INTERVAL = 24*3600
 
-YOUTUBE_CHANNEL_URL = 'https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id={id}&key={api_key}'
-YOUTUBE_PLAYLISTITEMS_URL = 'https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId={id}&page_token&pageToken={token}&maxResults=50&key={api_key}'
-YOUTUBE_PLAYLIST_URL = 'https://www.googleapis.com/youtube/v3/playlistItems?key={api_key}&playlistId={id}&part=snippet&pageToken={token}&maxResults=50&order=date'
-SOUNDCLOUD_RESOLVE_URL = 'https://api.soundcloud.com/resolve.json?url={url}&client_id={api_key}'
+YOUTUBE_CHANNEL_URL = u'https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id={id}&key={api_key}'
+YOUTUBE_PLAYLISTITEMS_URL = u'https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId={id}&page_token&pageToken={token}&maxResults=50&key={api_key}'
+YOUTUBE_PLAYLIST_URL = u'https://www.googleapis.com/youtube/v3/playlistItems?key={api_key}&playlistId={id}&part=snippet&pageToken={token}&maxResults=50&order=date'
+SOUNDCLOUD_RESOLVE_URL = u'https://api.soundcloud.com/resolve.json?url={url}&client_id={api_key}'
 
 
 def extract_youtube_id(url):

@@ -12,7 +12,6 @@ from twisted.web.server import Site
 from twisted.web.resource import Resource
 from twisted.internet import reactor
 from twisted.web.static import File
-from twisted.web.guard import HTTPAuthSessionWrapper, DigestCredentialFactory
 
 from search import Search
 from database import Database
@@ -191,7 +190,7 @@ class ClicklogHandler(BaseHandler):
     def render_GET(self, request):
         limit = request.args['limit'][0] if 'limit' in request.args else 0
 
-        # Make sure the user is authorized (HTTP digest authentication)
+        # Make sure the user is authorized (HTTP basic authentication)
         authorized = any([user['name'] == request.getUser() and user['password'] == request.getPassword() for user in self.database.get_users()])
         if not authorized:
             request.responseHeaders.addRawHeader('WWW-Authenticate', 'Basic realm="Billy"')

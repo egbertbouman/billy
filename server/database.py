@@ -137,6 +137,9 @@ class Database(object):
             tracks.append(track)
         return tracks
 
+    def set_track_musicinfo(self, track, musicinfo):
+        self.db.tracks.update({'_id': track['_id']}, {'$set': {'musicinfo': musicinfo}})
+
     def update_function_counter(self, track_id, function, delta):
         track = self.get_track(track_id)
         musicinfo = track.get('musicinfo', {})

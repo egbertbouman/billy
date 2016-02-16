@@ -8,9 +8,11 @@ import ConfigParser
 import logging
 import logging.config
 
+from twisted.web import server
 from twisted.web.server import Site
 from twisted.web.resource import Resource
-from twisted.internet import reactor
+from twisted.internet import defer, reactor
+from twisted.internet.defer import inlineCallbacks
 from twisted.web.static import File
 
 from search import Search
@@ -54,6 +56,34 @@ class BaseHandler(Resource):
     def error(self, request, message, status_code):
         request.setResponseCode(status_code)
         return {'error': message}
+
+    def render_GET(self, request):
+        def finish_req(res, request):
+            request.write(json.dumps(res))
+            if not request.finished:
+                request.finish()
+
+        d = self._process_GET(request)
+        d.addCallback(finish_req, request)
+        return server.NOT_DONE_YET
+
+    @inlineCallbacks
+    def _process_GET(self, request):
+        defer.returnValue(self.error(request, 'Method not allowed', 405))
+
+    def render_POST(self, request):
+        def finish_req(res, request):
+            request.write(json.dumps(res))
+            if not request.finished:
+                request.finish()
+
+        d = self._process_POST(request)
+        d.addCallback(finish_req, request)
+        return server.NOT_DONE_YET
+
+    @inlineCallbacks
+    def _process_POST(self, request):
+        defer.returnValue(self.error(request, 'Method not allowed', 405))
 
 
 class SessionHandler(BaseHandler):
@@ -110,47 +140,47 @@ class PlaylistsHandler(BaseHandler):
 
 class TracksHandler(BaseHandler):
 
-    @json_out
-    def render_GET(self, request):
+    @inlineCallbacks
+    def _process_GET(self, request):
         query = request.args['query'][0] if 'query' in request.args else None
         id = request.args['id'][0] if 'id' in request.args else None
         offset = request.args['offset'][0] if 'offset' in request.args else 0
 
         if bool(query) == bool(id):
-            return self.error(request, 'please use either the query or the id param', 400)
+            defer.returnValue(self.error(request, 'please use either the query or the id param', 400))
 
         if id:
             track = self.database.get_track(id)
             if track is None:
-                return self.error(request, 'track does not exist', 404)
-            return track
+                defer.returnValue(self.error(request, 'track does not exist', 404))
+            defer.returnValue(track)
 
-        results = self.search.search(query)
+        results = yield self.search.search(query)
         results.sort(key=lambda x: x.get('stats', {}).get('playlisted', 0), reverse=True)
 
         offset = int(offset)
         page_size = int(self.config.get('api', 'page_size'))
 
         if offset > len(results):
-            return self.error(request, 'offset is larger then result-set', 404)
+            defer.returnValue(self.error(request, 'offset is larger then result-set', 404))
         else:
-            return {'offset': offset,
-                    'page_size': page_size,
-                    'total': len(results),
-                    'results': results[offset:offset+page_size]}
+            defer.returnValue({'offset': offset,
+                               'page_size': page_size,
+                               'total': len(results),
+                               'results': results[offset:offset+page_size]})
 
 
 class RecommendHandler(BaseHandler):
 
-    @json_out
-    def render_GET(self, request):
+    @inlineCallbacks
+    def _process_GET(self, request):
         token = request.args['token'][0] if 'token' in request.args else None
         name = request.args['name'][0] if 'name' in request.args else None
         offset = request.args['offset'][0] if 'offset' in request.args else 0
 
         session = self.database.get_session(token)
         if session is None:
-            return self.error(request, 'cannot find session', 404)
+            defer.returnValue(self.error(request, 'cannot find session', 404))
 
         playlists = session['playlists']
         playlist = None
@@ -161,27 +191,29 @@ class RecommendHandler(BaseHandler):
 
         playlist = playlist or playlists.get(name, None)
         if playlist is None:
-            return self.error(request, 'cannot find playlist', 404)
+            defer.returnValue(self.error(request, 'cannot find playlist', 404))
 
-        results = self.search.recommend(playlist)
+        results = yield self.search.recommend(playlist)
 
         offset = int(offset)
         page_size = int(self.config.get('api', 'page_size'))
 
         if results is None:
             results = self.database.get_random_tracks(page_size)
-            return {'offset': 0,
-                    'total': len(results),
-                    'results': results}
+            response = {'offset': 0,
+                        'total': len(results),
+                        'results': results}
 
         elif offset > len(results):
-            return self.error(request, 'offset is larger then result-set', 404)
+            response = self.error(request, 'offset is larger then result-set', 404)
 
         else:
-            return {'offset': offset,
-                    'page_size': page_size,
-                    'total': len(results),
-                    'results': results[offset:offset+page_size]}
+            response = {'offset': offset,
+                        'page_size': page_size,
+                        'total': len(results),
+                        'results': results[offset:offset+page_size]}
+
+        defer.returnValue(response)
 
 
 class ClicklogHandler(BaseHandler):
@@ -245,7 +277,6 @@ def main(argv):
         parser.add_argument('-s', '--sources', help='JSON formatted sources to be imported into the database', required=False)
         parser.add_argument('-u', '--users', help='JSON formatted admin users to be imported into the database', required=False)
         parser.add_argument('-d', '--dir', help='Directory with static content (served from http://server/billy)', required=False)
-        parser.add_argument('-i', '--index', help='Directory with the search index (default: data/index)', required=False)
         parser.add_argument('-n', '--dbname', help='Name of the MongoDB database (default: billy)', required=False)
         parser.add_help = True
         args = parser.parse_args(sys.argv[1:])
@@ -261,7 +292,7 @@ def main(argv):
     config.read(os.path.join(CURRENT_DIR, 'billy.conf'))
 
     database = Database(config, (args.dbname or 'billy'))
-    search = Search(database, args.index or (os.path.join(CURRENT_DIR, 'data', 'index')))
+    search = Search(database, config)
     database.set_track_callback(search.index)
 
     # Import tracks

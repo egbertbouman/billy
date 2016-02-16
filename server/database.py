@@ -31,8 +31,8 @@ class Database(object):
         self.config = config
         self.add_track_cb = None
 
-        mongo_host = self.config.get('database', 'mongo_host')
-        mongo_port = int(self.config.get('database', 'mongo_port'))
+        mongo_host = self.config.get('mongodb', 'host')
+        mongo_port = int(self.config.get('mongodb', 'port'))
         self.client = MongoClient(mongo_host, mongo_port)
         self.db = self.client[db_name]
         self.db.add_son_manipulator(ObjectIdToString())

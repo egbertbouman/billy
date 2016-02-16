@@ -3,8 +3,9 @@ import logging
 import dateutil.tz
 
 from datetime import datetime
+from StringIO import StringIO
 from collections import OrderedDict
-from twisted.web.client import Agent
+from twisted.web.client import Agent, FileBodyProducer
 from twisted.web.http_headers import Headers
 from twisted.internet.protocol import Protocol
 from twisted.internet import reactor, defer
@@ -35,10 +36,11 @@ class BodyReceiver(Protocol):
         self.finished.callback(Response(self.status_code, self.data))
 
 
-def get_request(url, headers={}, timeout=30, ignore_errors=True):
+def http_request(method, url, data=None, headers={}, timeout=30, ignore_errors=True):
     url = url.encode('utf-8') if isinstance(url, unicode) else url
     agent = Agent(reactor, connectTimeout=timeout)
-    d = agent.request('GET', url, Headers(headers), None)
+    body = FileBodyProducer(StringIO(data)) if data else None
+    d = agent.request('GET', url, Headers(headers), body)
 
     def handle_response(response):
         d = defer.Deferred()
@@ -54,6 +56,14 @@ def get_request(url, headers={}, timeout=30, ignore_errors=True):
     if ignore_errors:
         d.addErrback(handle_error)
     return d
+
+
+def get_request(url, headers={}, timeout=30, ignore_errors=True):
+    return  http_request('GET', url, headers=headers, timeout=timeout, ignore_errors=ignore_errors)
+
+
+def post_request(url, data, headers={}, timeout=30, ignore_errors=True):
+    return  http_request('POST', url, data, headers=headers, timeout=timeout, ignore_errors=ignore_errors)
 
 
 # From: http://stackoverflow.com/questions/2437617/limiting-the-size-of-a-python-dictionary
@@ -89,4 +99,25 @@ def ts_to_rfc3339(ts):
 def datetime_to_ts(dt):
     epoch_dt = datetime(1970, 1, 1, tzinfo=dateutil.tz.tzoffset(None, 0))
     return int((dt - epoch_dt).total_seconds())
+
+
+def build_bool_query(bool_type, match_dict, nested_path=None):
+    query = {'query': {'bool': {bool_type: []}}}
+
+    for key, value in match_dict.iteritems():
+        query['query']['bool'][bool_type].append({'match': {key: value}})
+
+    if nested_path:
+        query = {'nested': query}
+        query['nested']['path'] = nested_path
+
+    return query
+
+
+def build_simple_query(query, fields=['_all']):
+    return {'query': {'simple_query_string': {'query': query, 'fields': fields}}}
+
+
+def build_query(query, field='_all'):
+    return {'query': {'query_string': {'query': query, 'default_field': field}}}
 

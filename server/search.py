@@ -3,117 +3,95 @@ import json
 import random
 import logging
 
-# We make use of the Pylucene libraries (see http://lucene.apache.org/pylucene/)
-import lucene
-try:
-    from java.io import File
-    from org.apache.lucene.document import Document, Field, FieldType
-    from org.apache.lucene.store import SimpleFSDirectory
-    from org.apache.lucene.index import FieldInfo, IndexWriter, IndexWriterConfig, DirectoryReader
-    from org.apache.lucene.queryparser.classic import QueryParser
-    from org.apache.lucene.analysis.standard import StandardAnalyzer
-    from org.apache.lucene.search import IndexSearcher
-    from org.apache.lucene.util import Version
-    LUCENE3 = False
-except ImportError:
-    # PyLucene 3
-    from lucene import SimpleFSDirectory, System, File, Document, Field, StandardAnalyzer, IndexWriter, \
-                       Version, IndexSearcher, QueryParser, FieldInfo, IndexWriterConfig
-    LUCENE3 = True
+from util import *
+from twisted.internet import defer
+from twisted.internet.defer import inlineCallbacks
 
-lucene.initVM()
+
+ES_BULK_URL = 'http://{host}:{port}/_bulk'
+ES_SEARCH_URL = 'http://{host}:{port}/{index}/{type}/_search?size={size}&from={offset}'
+
+BULK_BATCH_SIZE = 1000
 
 
 class Search(object):
 
-    def __init__(self, db, index_dir, alternative_spelling_dict={}):
+    def __init__(self, database, config, alternative_spelling_dict={}):
         self.logger = logging.getLogger(__name__)
 
-        self.database = db
-        self.index_dir = index_dir
+        self.database = database
+        self.config = config
+        self.host = self.config.get('elasticsearch', 'host')
+        self.port = self.config.get('elasticsearch', 'port')
         self.alternative_spelling_dict = alternative_spelling_dict
-        self.analyzer = StandardAnalyzer(Version.LUCENE_CURRENT)
 
-    def index(self, music_json_data):
-        # Builds Lucene index for given dataset.
-        # Currently, we will just stack info from multiple metadata together as 'documents' (see getIndexTerms), and consider the track_id as 'keys'.
-        # Alternative spellings are optional.        
-        if not os.path.exists(self.index_dir):
-            os.makedirs(self.index_dir)
+    @inlineCallbacks
+    def index(self, tracks):
+        self.logger.info('Bulk inserting %s track(s)', len(tracks))
 
-        dir = SimpleFSDirectory(File(self.index_dir))
+        url = ES_BULK_URL.format(host=self.host, port=self.port)
+        count = 0
+        for index in xrange(0, len(tracks), BULK_BATCH_SIZE):
+            batch = tracks[index:index+BULK_BATCH_SIZE]
+            data = ''
+            for track in batch:
+                data += json.dumps({'create': {'_index': self.database.db.name, '_type': 'track', '_id': track.pop('_id')}}) + '\n'
+                if 'musicinfo' in track and 'listeners' in track['musicinfo']:
+                    track['musicinfo']['listeners'] = [{'ts':ts, 'count':count} for ts, count in track['musicinfo']['listeners'].items()]
+                if 'musicinfo' in track and 'playcount' in track['musicinfo']:
+                    track['musicinfo']['playcount'] = [{'ts':ts, 'count':count} for ts, count in track['musicinfo']['playcount'].items()]
+                track['sources'] = [{'id':source} for source in track['sources']]
+                data += json.dumps(track) + '\n'
+                response = yield post_request(url, data=data)
+                for log in response.json.get('items', []):
+                    if log['status'] == 201:
+                        count += 1
+        self.logger.info('Bulk inserting finished (%s records added)', count)
 
-        config = IndexWriterConfig(Version.LUCENE_CURRENT, self.analyzer)
-        config.setOpenMode(IndexWriterConfig.OpenMode.CREATE_OR_APPEND)
+    @inlineCallbacks
+    def search(self, query, field='title', sources=None, max_results=200):
+        self.logger.info('Searching for query %s', query)
 
-        writer = IndexWriter(dir, config)
+        url = ES_SEARCH_URL.format(host=self.host, port=self.port, index=self.database.db.name, type='track', size=max_results, offset=0)
 
-        if not LUCENE3:
-            index_terms_field = FieldType()
-            index_terms_field.setIndexed(True)
-            index_terms_field.setStored(False)
+        query_dict = build_bool_query('must', {})
+        query_dict['query']['bool']['must'] = [build_query(query, field)]
 
-            key_field = FieldType()
-            key_field.setIndexed(False)
-            key_field.setStored(True)
-            key_field.setIndexOptions(FieldInfo.IndexOptions.DOCS_AND_FREQS)
+        if sources:
+            # Search within specific sources
+            nested_query = build_bool_query('must', {'sources.id': ' '.join(sources)}, nested_path='sources')
+            query_dict['query']['bool']['must'].append(nested_query)
 
-        music_json_data = music_json_data if isinstance(music_json_data, list) else [music_json_data]
+        response = yield post_request(url, data=json.dumps(query_dict))
 
-        for song in music_json_data:
-            doc = Document()
+        results = []
+        for hit in response.json['hits']['hits']:
+            result = hit['_source']
+            result['_id'] = hit['_id']
+            results.append(result)
 
-            index_terms = ' '.join(getIndexTerms(song, self.alternative_spelling_dict))
-            self.logger.info('Indexing song ''%s'' with terms: %s\n', song['title'].encode('utf-8'), index_terms)
+        defer.returnValue(results)
 
-            if not LUCENE3:
-                doc.add(Field("index_terms", index_terms, index_terms_field))
-                doc.add(Field("track_id", song['_id'], key_field))
-            else:
-                field1 = Field("index_terms", index_terms, Field.Store.NO, Field.Index.ANALYZED)
-                field2 = Field("track_id", song['_id'], Field.Store.YES, Field.Index.NO)
-                field2.setIndexOptions(FieldInfo.IndexOptions.DOCS_AND_FREQS)
-
-                doc.add(field1)
-                doc.add(field2)
-
-            writer.addDocument(doc)
-
-        writer.close()
-        return
-
-    def search(self, query, max_results=200):
-        if not os.path.exists(self.index_dir) or not os.listdir(self.index_dir):
-            return []
-
-        dir = SimpleFSDirectory(File(self.index_dir)) if LUCENE3 else DirectoryReader.open(SimpleFSDirectory(File(self.index_dir)))
-        searcher = IndexSearcher(dir)
-
-        query = QueryParser(Version.LUCENE_CURRENT, "index_terms", self.analyzer).parse(QueryParser.escape(query.lower()))
-
-        search_results = searcher.search(query, max_results).scoreDocs
-
-        result = []
-
-        for search_result in search_results:
-            document = searcher.doc(search_result.doc)
-            track_id = document.get("track_id")
-            result.append(self.database.get_track(track_id))
-
-        dir.close()
-
-        # The result to be returned is a list of JSON dictionaries (one per song)
-        return result
-
+    @inlineCallbacks
     def recommend(self, playlist):
         song_set = playlist['tracks']
 
         if len(song_set) > 0:
             song_set_ids = [song['_id'] for song in song_set]
-            frequent_terms_in_set = getFrequentTerms(song_set)
-            query_from_frequent_terms = ' '.join(frequent_terms_in_set)
-            self.logger.info('Querying dataset for "%s"', query_from_frequent_terms)
-            search_results = self.search(query_from_frequent_terms)
+
+            sources = set()
+            artists = set()
+            similar_artists = set()
+            for track in playlist['tracks']:
+                for source in track['sources']:
+                    sources.add(source)
+                if 'artist_name' in track.get('musicinfo', {}):
+                    artists.add(track['musicinfo']['artist_name'])
+                similar_artists |= set(track.get('musicinfo', {}).get('similar_artists', []))
+
+            all_artists = list(artists) + list(similar_artists)
+            query = ' '.join(map(lambda x: '\"' + x + '\"', all_artists))
+            search_results = yield self.search(query, sources=sources)
 
             filtered_search_results = []
             for search_result in search_results:
@@ -121,12 +99,12 @@ class Search(object):
                     filtered_search_results.append(search_result)
 
             if len(filtered_search_results) > 0:
-                return filtered_search_results
-
-        # Return recommendations based on playlist name + description
-        query = playlist['name'] + ' ' + playlist['description']
-        self.logger.info('Querying dataset for "%s"', query)
-        return self.search(query)
+                defer.returnValue(filtered_search_results)
+        else:
+            # Return recommendations based on playlist name + description
+            query = playlist['name'] + ' ' + playlist['description']
+            self.logger.info('Querying dataset for "%s"', query)
+            defer.returnValue((yield self.search(query)))
 
 
 def getFrequentTerms(music_json_data, num_suggestions=20, exclude_terms=[''], alternative_spelling_dict={}):

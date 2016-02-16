@@ -729,7 +729,7 @@ billy = {};
 
     billy.search = function() {
         var query = $("#search-query").val();
-        this.call_api(this.api_tracks.format(query, ''), $("#search"), function() {billy.change_results('search');});
+        this.call_api(this.api_tracks.format(encodeURIComponent(query), ''), $("#search"), function() {billy.change_results('search');});
     }
 
     billy.recommend = function() {

@@ -29,7 +29,10 @@ class MetadataChecker(object):
             for pl_name, pl_dict in playlists.iteritems():
                 for track_id in pl_dict['tracks']:
                     track = self.database.get_track(track_id)
-                    sources |= set(track.get('sources', []))
+                    if track:
+                        sources |= set(track.get('sources', []))
+                    else:
+                        self.logger.error('Track %s is in a playlist, but not in the database', track_id)
 
         tracks = []
         for source in sources:

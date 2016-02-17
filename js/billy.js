@@ -1075,10 +1075,12 @@ billy = {};
         var html = '<div class="popover-container"><table>';
 
         html += '<tr><td>status</td><td></td><td>';
-        if (data['info']['status'] === 'idle')
-            html += "<span class='label label-success'>idle</span>";
-        else
-            html += "<span class='label label-warning'>" + data['info']['status'] + "</span>";
+        data['info']['status'].forEach(function(status_str, index) {
+            if (status_str  === 'idle')
+                html += "<span class='label label-success'>idle</span>";
+            else
+                html += "<span class='label label-warning'>" + data['info']['status'] + "</span>";
+        });
         html += '</td></tr>';
 
         html += '<tr><td>#sources</td><td></td><td>' + data['info']['num_sources'] + '</td></tr>';

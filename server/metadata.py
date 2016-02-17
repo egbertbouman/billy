@@ -37,13 +37,21 @@ class MetadataChecker(object):
         tracks = []
         for source in sources:
             tracks.extend(self.database.get_tracks_from_source(source))
+
+        now = int(time.time())
+        tracks = [track for track in tracks if now - track.get('musicinfo', {}).get('last_check', 0) >= METADATA_CHECK_INTERVAL]
+
         self.logger.info('Checking for metadata (%s sources / %s tracks)', len(sources), len(tracks))
 
         for track in tracks:
             musicinfo = yield self.lastfm.fetch(track)
 
-            if musicinfo:
-                self.database.set_track_musicinfo(track, musicinfo)
+            got_musicinfo = bool(musicinfo)
+            # Even if we didn't get any metadata, we still need to remember the last_check time
+            musicinfo = musicinfo or {}
+            musicinfo['last_check'] = int(time.time())
+            self.database.set_track_musicinfo(track, musicinfo)
+            if got_musicinfo:
                 self.logger.info('Updated metadata for track %s', track['_id'])
 
     @inlineCallbacks

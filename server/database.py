@@ -182,6 +182,13 @@ class Database(object):
 
         info['num_sources'] = self.db.sources.count()
         info['num_sessions'] = self.db.sessions.count()
-        info['status'] = 'checking' if self.source_checker.checking else 'idle'
+        info['status'] = []
+
+        if self.source_checker.checking:
+            info['status'].append('checking sources')
+        if self.metadata_checker.checking:
+            info['status'].append('checking metadata')
+        if not info['status']:
+            info['status'].append('idle')
 
         return info

@@ -1079,7 +1079,7 @@ billy = {};
             if (status_str  === 'idle')
                 html += "<span class='label label-success'>idle</span>";
             else
-                html += "<span class='label label-warning'>" + data['info']['status'] + "</span>";
+                html += "<span class='label label-warning'>" + status_str + "</span>";
         });
         html += '</td></tr>';
 

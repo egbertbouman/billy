@@ -10,6 +10,7 @@ from twisted.internet.defer import inlineCallbacks
 
 ES_BULK_URL = 'http://{host}:{port}/_bulk'
 ES_SEARCH_URL = 'http://{host}:{port}/{index}/{type}/_search?size={size}&from={offset}'
+ES_MAPPING_URL = 'http://{host}:{port}/{index}'
 
 BULK_BATCH_SIZE = 1000
 
@@ -26,8 +27,24 @@ class Search(object):
         self.alternative_spelling_dict = alternative_spelling_dict
 
     @inlineCallbacks
+    def create(self):
+        url = ES_MAPPING_URL.format(host=self.host, port=self.port, index=self.database.db.name)
+        response = yield get_request(url)
+        if response.json.get('error', {}).get('type', None) == 'index_not_found_exception':
+            with open('es_track_mapping.json', 'rb') as fp:
+                mapping = fp.read()
+            content = {'settings': {'number_of_shards' : 1},
+                       'mappings' : json.loads(mapping)}
+            response = yield put_request(url, data=json.dumps(content))
+            if response.json.get('acknowledged', False):
+                self.logger.info('Created index %s', self.database.db.name)
+            else:
+                self.logger.info('Failed to create index %s', self.database.db.name)
+
+    @inlineCallbacks
     def index(self, tracks):
-        self.logger.info('Bulk inserting %s track(s)', len(tracks))
+        # Make sure the index exists
+        self.create()
 
         url = ES_BULK_URL.format(host=self.host, port=self.port)
         count = 0
@@ -42,11 +59,11 @@ class Search(object):
                     track['musicinfo']['playcount'] = [{'ts':ts, 'count':count} for ts, count in track['musicinfo']['playcount'].items()]
                 track['sources'] = [{'id':source} for source in track['sources']]
                 data += json.dumps(track) + '\n'
-                response = yield post_request(url, data=data)
-                for log in response.json.get('items', []):
-                    if log['status'] == 201:
-                        count += 1
-        self.logger.info('Bulk inserting finished (%s records added)', count)
+            response = yield post_request(url, data=data)
+            for log in response.json.get('items', []):
+                if log.get('create', {}).get('status', None) == 201:
+                    count += 1
+        self.logger.info('Indexed %s record(s)', count)
 
     @inlineCallbacks
     def search(self, query, field='title', sources=None, max_results=200):
@@ -65,7 +82,7 @@ class Search(object):
         response = yield post_request(url, data=json.dumps(query_dict))
 
         results = []
-        for hit in response.json['hits']['hits']:
+        for hit in response.json.get('hits', {}).get('hits', []):
             result = hit['_source']
             result['_id'] = hit['_id']
             results.append(result)

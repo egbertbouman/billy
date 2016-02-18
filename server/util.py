@@ -40,7 +40,7 @@ def http_request(method, url, data=None, headers={}, timeout=30, ignore_errors=T
     url = url.encode('utf-8') if isinstance(url, unicode) else url
     agent = Agent(reactor, connectTimeout=timeout)
     body = FileBodyProducer(StringIO(data)) if data else None
-    d = agent.request('GET', url, Headers(headers), body)
+    d = agent.request(method, url, Headers(headers), body)
 
     def handle_response(response):
         d = defer.Deferred()
@@ -64,6 +64,10 @@ def get_request(url, headers={}, timeout=30, ignore_errors=True):
 
 def post_request(url, data, headers={}, timeout=30, ignore_errors=True):
     return  http_request('POST', url, data, headers=headers, timeout=timeout, ignore_errors=ignore_errors)
+
+
+def put_request(url, data, headers={}, timeout=30, ignore_errors=True):
+    return  http_request('PUT', url, data, headers=headers, timeout=timeout, ignore_errors=ignore_errors)
 
 
 # From: http://stackoverflow.com/questions/2437617/limiting-the-size-of-a-python-dictionary

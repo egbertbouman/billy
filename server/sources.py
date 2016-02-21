@@ -93,7 +93,11 @@ class SourceChecker(object):
 
     @inlineCallbacks
     def check_sources(self, source_dict):
-        def callback(tracks):
+        self.logger.info('In check_sources (%s todo)', len(source_dict))
+        for source_id, source in source_dict.iteritems():
+            self.logger.info('Going to check source %s', source)
+            tracks = yield source.fetch(source.last_check)
+
             for track in tracks:
                 track['sources'] = [source_id]
 
@@ -101,24 +105,21 @@ class SourceChecker(object):
             self.logger.info('Got %s track(s) for source %s (%s are new)', len(tracks), source, count)
             self.database.set_source_last_check(source_id, source.last_check)
 
-        for source_id, source in source_dict.iteritems():
-            d = source.fetch(source.last_check)
-            d.addCallback(callback)
-            yield d
-
     @inlineCallbacks
     def check_loop(self):
         self.checking = True
-        self.logger.info('Checking sources')
 
         now = int(time.time())
         sources = [(source_id, source) for source_id, source in self.sources.iteritems() if now - source.last_check >= SOURCES_CHECK_INTERVAL]
         num_sources = len(sources)
+        self.logger.info('Checking %s sources', num_sources)
+
         num_chunks = int((num_sources / 4.0) + 1)
         deferreds = []
         for i in xrange(0, num_sources, num_chunks):
             deferreds.append(self.check_sources(dict(sources[i:i+num_chunks])))
-        yield DeferredList(deferreds)
+        for d in deferreds:
+            yield d
 
         self.logger.info('Finished checking sources')
         self.checking = False
@@ -270,7 +271,7 @@ class YoutubeSource(object):
             response_dict = response.json
 
             if self.has_error(response_dict):
-                defer.returnValue(results)
+                break
 
             items = response_dict['items']
 
@@ -304,7 +305,7 @@ class YoutubeSource(object):
             response_dict = response.json
 
             if self.has_error(response_dict):
-                defer.returnValue(results)
+                break
 
             items = response_dict['items']
             for item in items:

@@ -13,6 +13,7 @@ ES_SEARCH_URL = 'http://{host}:{port}/{index}/{type}/_search?size={size}&from={o
 ES_MAPPING_URL = 'http://{host}:{port}/{index}'
 
 BULK_BATCH_SIZE = 1000
+CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
 class Search(object):
@@ -31,7 +32,7 @@ class Search(object):
         url = ES_MAPPING_URL.format(host=self.host, port=self.port, index=self.database.db.name)
         response = yield get_request(url)
         if response.json.get('error', {}).get('type', None) == 'index_not_found_exception':
-            with open('es_track_mapping.json', 'rb') as fp:
+            with open(os.path.join(CURRENT_DIR, 'es_track_mapping.json'), 'rb') as fp:
                 mapping = fp.read()
             content = {'settings': {'number_of_shards' : 1},
                        'mappings' : json.loads(mapping)}

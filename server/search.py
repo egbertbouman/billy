@@ -1,4 +1,5 @@
 import os
+import copy
 import json
 import random
 import logging
@@ -8,7 +9,7 @@ from twisted.internet import defer
 from twisted.internet.defer import inlineCallbacks
 
 
-ES_BULK_URL = 'http://{host}:{port}/_bulk'
+ES_BULK_URL = 'http://{host}:{port}/{index}/_bulk'
 ES_SEARCH_URL = 'http://{host}:{port}/{index}/{type}/_search?size={size}&from={offset}'
 ES_MAPPING_URL = 'http://{host}:{port}/{index}'
 
@@ -25,46 +26,63 @@ class Search(object):
         self.config = config
         self.host = self.config.get('elasticsearch', 'host')
         self.port = self.config.get('elasticsearch', 'port')
+        self.index_ready = False
         self.alternative_spelling_dict = alternative_spelling_dict
 
     @inlineCallbacks
     def create(self):
+        with open(os.path.join(CURRENT_DIR, 'es_track_mapping.json'), 'rb') as fp:
+            mapping = fp.read()
+        content = {'settings': {'number_of_shards' : 1},
+                   'mappings' : json.loads(mapping)}
         url = ES_MAPPING_URL.format(host=self.host, port=self.port, index=self.database.db.name)
-        response = yield get_request(url)
-        if response.json.get('error', {}).get('type', None) == 'index_not_found_exception':
-            with open(os.path.join(CURRENT_DIR, 'es_track_mapping.json'), 'rb') as fp:
-                mapping = fp.read()
-            content = {'settings': {'number_of_shards' : 1},
-                       'mappings' : json.loads(mapping)}
-            response = yield put_request(url, data=json.dumps(content))
-            if response.json.get('acknowledged', False):
-                self.logger.info('Created index %s', self.database.db.name)
-            else:
-                self.logger.info('Failed to create index %s', self.database.db.name)
+        response = yield put_request(url, data=json.dumps(content))
+        if response.json.get('acknowledged', False):
+            self.logger.info('Created index %s', self.database.db.name)
+            self.index_ready = True
+        elif response.json.get('error', {}).get('type', None) == 'index_already_exists_exception':
+            self.index_ready = True
+        else:
+            self.logger.info('Failed to create index %s', self.database.db.name)
 
     @inlineCallbacks
-    def index(self, tracks):
-        # Make sure the index exists
-        self.create()
-
-        url = ES_BULK_URL.format(host=self.host, port=self.port)
-        count = 0
+    def _bulk(self, tracks, op):
+        url = ES_BULK_URL.format(host=self.host, port=self.port, index=self.database.db.name)
+        counter = 0
         for index in xrange(0, len(tracks), BULK_BATCH_SIZE):
             batch = tracks[index:index+BULK_BATCH_SIZE]
             data = ''
             for track in batch:
-                data += json.dumps({'create': {'_index': self.database.db.name, '_type': 'track', '_id': track.pop('_id')}}) + '\n'
+                track = copy.deepcopy(track)
+                data += json.dumps({op: {'_index': self.database.db.name, '_type': 'track', '_id': track.pop('_id')}}) + '\n'
                 if 'musicinfo' in track and 'listeners' in track['musicinfo']:
                     track['musicinfo']['listeners'] = [{'ts':ts, 'count':count} for ts, count in track['musicinfo']['listeners'].items()]
                 if 'musicinfo' in track and 'playcount' in track['musicinfo']:
                     track['musicinfo']['playcount'] = [{'ts':ts, 'count':count} for ts, count in track['musicinfo']['playcount'].items()]
                 track['sources'] = [{'id':source} for source in track['sources']]
-                data += json.dumps(track) + '\n'
+                if op == 'insert':
+                    data += json.dumps(track) + '\n'
+                elif op == 'update':
+                    data += json.dumps({'doc': track}) + '\n'
             response = yield post_request(url, data=data)
             for log in response.json.get('items', []):
-                if log.get('create', {}).get('status', None) == 201:
-                    count += 1
+                if log.get(op, {}).get('status', None) in [200, 201]:
+                    counter += 1
+        defer.returnValue(counter)
+
+    @inlineCallbacks
+    def index(self, tracks):
+        # Make sure the index exists
+        if not self.index_ready:
+            self.create()
+
+        count = yield self._bulk(tracks, 'insert')
         self.logger.info('Indexed %s record(s)', count)
+
+    @inlineCallbacks
+    def update(self, tracks):
+        count = yield self._bulk(tracks, 'update')
+        self.logger.info('Updated %s record(s)', count)
 
     @inlineCallbacks
     def search(self, query, field='title', sources=None, max_results=200):
@@ -192,7 +210,7 @@ def getCombinedTags(song_json_data, alternative_spelling_dict={}):
     return combined_tags
 
 def expandAlternativeSpellings(search_term, alternative_spelling_dict):
-    # Expands a search term with possible alternative spellings   
+    # Expands a search term with possible alternative spellings
     expansion_list = [search_term]
 
     if alternative_spelling_dict.has_key(search_term):
@@ -213,3 +231,4 @@ def getAlternativeSpellingDict(path, delimiter=';'):
             alternative_spelling_dict[tag_spellings[0]] = tag_spellings[1:]
 
     return alternative_spelling_dict
+

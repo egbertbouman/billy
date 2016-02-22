@@ -30,6 +30,7 @@ class Database(object):
 
         self.config = config
         self.add_track_cb = None
+        self.update_track_cb = None
 
         mongo_host = self.config.get('mongodb', 'host')
         mongo_port = int(self.config.get('mongodb', 'port'))
@@ -50,8 +51,9 @@ class Database(object):
         self.source_checker = SourceChecker(self, self.config)
         self.metadata_checker = MetadataChecker(self, self.config)
 
-    def set_track_callback(self, cb):
-        self.add_track_cb = cb
+    def set_track_callbacks(self, add_cb, update_cb):
+        self.add_track_cb = add_cb
+        self.update_track_cb = update_cb
 
     def add_source(self, source):
         # Add to database
@@ -109,11 +111,13 @@ class Database(object):
                 self.add_track_cb(to_insert)
 
         # Merge sources
-        for track in existing_tracks:
-            for t in tracks:
-                if t['link'] == track['link']:
-                    self.db.tracks.update({'_id': track['_id']},{'$addToSet': {'sources': {'$each': t['sources']}}})
-                    self.logger.debug('Merged sources for track %s', track['_id'])
+        to_update = [track for track in existing_tracks if track['link'] in [t['link'] for t in tracks]]
+        for track in to_update:
+            self.db.tracks.update({'_id': track['_id']},{'$addToSet': {'sources': {'$each': t['sources']}}})
+            self.logger.debug('Merged sources for track %s', track['_id'])
+
+        if self.update_track_cb:
+            self.update_track_cb(to_update)
 
         return len(to_insert)
 
@@ -140,6 +144,9 @@ class Database(object):
     def set_track_musicinfo(self, track, musicinfo):
         self.db.tracks.update({'_id': track['_id']}, {'$set': {'musicinfo': musicinfo}})
 
+        if self.update_track_cb:
+            self.update_track_cb([track])
+
     def update_function_counter(self, track_id, function, delta):
         track = self.get_track(track_id)
         musicinfo = track.get('musicinfo', {})
@@ -147,6 +154,9 @@ class Database(object):
         musicinfo['functions'][function] = musicinfo['functions'].get(function, 0) + delta
         track['musicinfo'] = musicinfo
         self.db.tracks.update({'_id': track_id}, {'$set': {'musicinfo': musicinfo}})
+
+        if self.update_track_cb:
+            self.update_track_cb([track])
 
     def add_clicklog(self, clicklog):
         return self.db.clicklog.insert(clicklog)

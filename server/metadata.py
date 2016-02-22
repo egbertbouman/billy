@@ -50,6 +50,7 @@ class MetadataChecker(object):
             # Even if we didn't get any metadata, we still need to remember the last_check time
             musicinfo = musicinfo or {}
             musicinfo['last_check'] = int(time.time())
+            track['musicinfo'] = musicinfo
             self.database.set_track_musicinfo(track, musicinfo)
             if got_musicinfo:
                 self.logger.info('Updated metadata for track %s', track['_id'])

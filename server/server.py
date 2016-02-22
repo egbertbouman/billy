@@ -293,7 +293,7 @@ def main(argv):
 
     database = Database(config, (args.dbname or 'billy'))
     search = Search(database, config)
-    database.set_track_callback(search.index)
+    database.set_track_callbacks(search.index, search.update)
 
     # Import tracks
     if args.tracks:

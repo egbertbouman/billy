@@ -60,7 +60,7 @@ class Search(object):
                 if 'musicinfo' in track and 'playcount' in track['musicinfo']:
                     track['musicinfo']['playcount'] = [{'ts':ts, 'count':count} for ts, count in track['musicinfo']['playcount'].items()]
                 track['sources'] = [{'id':source} for source in track['sources']]
-                if op == 'insert':
+                if op == 'create':
                     data += json.dumps(track) + '\n'
                 elif op == 'update':
                     data += json.dumps({'doc': track}) + '\n'
@@ -76,13 +76,13 @@ class Search(object):
         if not self.index_ready:
             self.create()
 
-        count = yield self._bulk(tracks, 'insert')
+        count = yield self._bulk(tracks, 'create')
         self.logger.info('Indexed %s record(s)', count)
 
     @inlineCallbacks
     def update(self, tracks):
         count = yield self._bulk(tracks, 'update')
-        self.logger.info('Updated %s record(s)', count)
+        self.logger.debug('Updated %s record(s)', count)
 
     @inlineCallbacks
     def search(self, query, field='title', sources=None, max_results=200):

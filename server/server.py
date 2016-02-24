@@ -88,7 +88,7 @@ class BaseHandler(Resource):
 
 class SessionHandler(BaseHandler):
 
-    @json_out 
+    @json_out
     def render_GET(self, request):
         token = self.database.create_session()
         return {'token': token}
@@ -120,6 +120,11 @@ class PlaylistsHandler(BaseHandler):
         playlists_new = json.loads(body)
         tracks_new = set((p['name'], track_id) for p in playlists_new.values() for track_id in p['tracks'])
 
+        # Check metadata for the new tracks
+        for _, track_id in tracks_new:
+            track = self.database.get_track(track_id)
+            self.database.metadata_checker.check_track(track)
+
         playlists_old = session['playlists']
         tracks_old = set((p['name'], t['_id']) for p in playlists_old.values() for t in p['tracks'])
 
@@ -135,6 +140,11 @@ class PlaylistsHandler(BaseHandler):
                 self.database.update_function_counter(track_id, function, -1)
 
         self.database.update_session(token, playlists_new)
+
+        # Run the metadata checker (needs to be called after update_session)
+        if not self.database.metadata_checker.checking:
+            self.database.metadata_checker.check_all()
+
         return {}
 
 
@@ -327,7 +337,7 @@ def main(argv):
                 database.add_user(user['name'], user['password'])
             logger.info('Finished importing users')
 
-    database.start()
+    database.start_checking()
     root = Resource()
 
     if args.dir:

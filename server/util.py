@@ -9,6 +9,7 @@ from twisted.web.client import Agent, FileBodyProducer
 from twisted.web.http_headers import Headers
 from twisted.internet.protocol import Protocol
 from twisted.internet import reactor, defer
+from twisted.web._newclient import _WrapperException
 
 
 class Response(object):
@@ -43,13 +44,20 @@ def http_request(method, url, data=None, headers={}, timeout=30, ignore_errors=T
     d = agent.request(method, url, Headers(headers), body)
 
     def handle_response(response):
+        if 'audio/mpeg' in response.headers.getRawHeaders('content-type')[-1]:
+            # Don't download any multimedia files
+            raise Exception('reponse contains a multimedia file')
         d = defer.Deferred()
         response.deliverBody(BodyReceiver(response.code, d))
         return d
 
     def handle_error(error):
+        if isinstance(error, _WrapperException):
+            reason = ', '.join(error.reasons)
+        else:
+            reason = error.getErrorMessage()
         logger = logging.getLogger(__name__)
-        logger.info('Failed to GET %s', url)
+        logger.error('Failed to GET %s (reason: %s)', url, reason)
         return Response(0, '')
 
     d.addCallback(handle_response)

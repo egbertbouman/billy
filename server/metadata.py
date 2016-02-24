@@ -21,7 +21,10 @@ class MetadataChecker(object):
         self.check_loop()
 
     @inlineCallbacks
-    def check(self):
+    def check_all(self):
+        self.checking = True
+        self.logger.info('Checking for metadata')
+
         sources = set()
         sessions = self.database.get_all_sessions()
         for session in sessions:
@@ -44,26 +47,31 @@ class MetadataChecker(object):
         self.logger.info('Checking for metadata (%s sources / %s tracks)', len(sources), len(tracks))
 
         for track in tracks:
-            musicinfo = yield self.lastfm.fetch(track)
+            yield self.check_track(track)
 
+        self.logger.info('Finished checking for metadata')
+        self.checking = False
+
+    @inlineCallbacks
+    def check_track(self, track):
+        last_check = int(time.time()) - track.get('musicinfo', {}).get('last_check', 0)
+
+        if last_check >= METADATA_CHECK_INTERVAL:
+            musicinfo = yield self.lastfm.fetch(track)
             got_musicinfo = bool(musicinfo)
+
             # Even if we didn't get any metadata, we still need to remember the last_check time
             musicinfo = musicinfo or {}
             musicinfo['last_check'] = int(time.time())
             track['musicinfo'] = musicinfo
+
             self.database.set_track_musicinfo(track, musicinfo)
             if got_musicinfo:
                 self.logger.info('Updated metadata for track %s', track['_id'])
 
     @inlineCallbacks
     def check_loop(self):
-        self.checking = True
-        self.logger.info('Checking for metadata')
-
-        yield self.check()
-
-        self.logger.info('Finished checking for metadata')
-        self.checking = False
+        yield self.check_all()
         reactor.callLater(METADATA_CHECK_INTERVAL, self.check_loop)
 
 

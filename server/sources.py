@@ -93,9 +93,7 @@ class SourceChecker(object):
 
     @inlineCallbacks
     def check_sources(self, source_dict):
-        self.logger.info('In check_sources (%s todo)', len(source_dict))
         for source_id, source in source_dict.iteritems():
-            self.logger.info('Going to check source %s', source)
             tracks = yield source.fetch(source.last_check)
 
             for track in tracks:
@@ -114,10 +112,10 @@ class SourceChecker(object):
         num_sources = len(sources)
         self.logger.info('Checking %s sources', num_sources)
 
-        num_chunks = int((num_sources / 4.0) + 1)
+        chunk_size = int((num_sources / 4.0) + 1)
         deferreds = []
-        for i in xrange(0, num_sources, num_chunks):
-            deferreds.append(self.check_sources(dict(sources[i:i+num_chunks])))
+        for i in xrange(0, num_sources, chunk_size):
+            deferreds.append(self.check_sources(dict(sources[i:i+chunk_size])))
         for d in deferreds:
             yield d
 

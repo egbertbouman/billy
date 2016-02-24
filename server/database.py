@@ -47,7 +47,7 @@ class Database(object):
         self.source_checker = None
         self.metadata_checker = None
 
-    def start(self):
+    def start_checking(self):
         self.source_checker = SourceChecker(self, self.config)
         self.metadata_checker = MetadataChecker(self, self.config)
 
@@ -116,7 +116,7 @@ class Database(object):
             self.db.tracks.update({'_id': track['_id']},{'$addToSet': {'sources': {'$each': t['sources']}}})
             self.logger.debug('Merged sources for track %s', track['_id'])
 
-        if self.update_track_cb:
+        if self.update_track_cb and to_update:
             self.update_track_cb(to_update)
 
         return len(to_insert)

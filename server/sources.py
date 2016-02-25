@@ -10,11 +10,12 @@ from dateutil.parser import parse
 from lxml.cssselect import CSSSelector
 from lxml.etree import XMLSyntaxError
 from urlparse import urlparse, parse_qs
-from twisted.internet import reactor, defer
+from twisted.internet import reactor, defer, task
 from twisted.internet.defer import inlineCallbacks, Deferred, DeferredList
 
 feedparser._HTMLSanitizer.acceptable_elements.update(['iframe'])
 
+SOURCES_MAX_CONCURRENCY = 4
 SOURCES_CHECK_INTERVAL = 24*3600
 
 YOUTUBE_CHANNEL_URL = u'https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id={id}&key={api_key}'
@@ -92,32 +93,31 @@ class SourceChecker(object):
             return RSSSource(source_dict['data'], self.config, last_check)
 
     @inlineCallbacks
-    def check_sources(self, source_dict):
-        for source_id, source in source_dict.iteritems():
-            tracks = yield source.fetch(source.last_check)
+    def check_source(self, source_id, source):
+        tracks = yield source.fetch(source.last_check)
 
-            for track in tracks:
-                track['sources'] = [source_id]
+        for track in tracks:
+            track['sources'] = [source_id]
 
-            count = self.database.add_tracks(tracks)
-            self.logger.info('Got %s track(s) for source %s (%s are new)', len(tracks), source, count)
-            self.database.set_source_last_check(source_id, source.last_check)
+        count = self.database.add_tracks(tracks)
+        self.logger.info('Got %s track(s) for source %s (%s are new)', len(tracks), source, count)
+        self.database.set_source_last_check(source_id, source.last_check)
 
     @inlineCallbacks
     def check_loop(self):
         self.checking = True
-
         now = int(time.time())
         sources = [(source_id, source) for source_id, source in self.sources.iteritems() if now - source.last_check >= SOURCES_CHECK_INTERVAL]
-        num_sources = len(sources)
-        self.logger.info('Checking %s sources', num_sources)
+        self.logger.info('Checking %s sources', len(sources))
 
-        chunk_size = int((num_sources / 4.0) + 1)
         deferreds = []
-        for i in xrange(0, num_sources, chunk_size):
-            deferreds.append(self.check_sources(dict(sources[i:i+chunk_size])))
-        for d in deferreds:
-            yield d
+        coop = task.Cooperator()
+        work = (self.check_source(*source) for source in sources)
+        for i in xrange(SOURCES_MAX_CONCURRENCY):
+            d = coop.coiterate(work)
+            deferreds.append(d)
+        dl = defer.DeferredList(deferreds)
+        yield dl
 
         self.logger.info('Finished checking sources')
         self.checking = False

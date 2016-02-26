@@ -30,6 +30,11 @@ class MetadataChecker(object):
         for session in sessions:
             playlists = session.get('playlists', {})
             for pl_name, pl_dict in playlists.iteritems():
+
+                # Skip regular playlists
+                if pl_dict.get('type', 'user') != 'identity':
+                    continue
+
                 for track_id in pl_dict['tracks']:
                     track = self.database.get_track(track_id)
                     if track:

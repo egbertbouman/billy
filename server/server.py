@@ -120,20 +120,22 @@ class PlaylistsHandler(BaseHandler):
         playlists_new = json.loads(body)
         tracks_new = set((p['name'], track_id) for p in playlists_new.values() for track_id in p['tracks'])
 
-        # Check metadata for the new tracks
-        for _, track_id in tracks_new:
-            track = self.database.get_track(track_id)
-            self.database.metadata_checker.check_track(track)
-
         playlists_old = session['playlists']
         tracks_old = set((p['name'], t['_id']) for p in playlists_old.values() for t in p['tracks'])
 
         tracks_added = tracks_new - tracks_old
         tracks_removed = tracks_old - tracks_new
 
+        check_metadata = False
         for playlist_name, track_id in tracks_added:
             for function in playlists_new[playlist_name].get('functions', []):
                 self.database.update_function_counter(track_id, function, 1)
+
+            # Check metadata for the new tracks in the identity playlist
+            if  playlists_new[playlist_name].get('type', 'user') == 'identity':
+                track = self.database.get_track(track_id)
+                self.database.metadata_checker.check_track(track)
+                check_metadata = True
 
         for playlist_name, track_id in tracks_removed:
             for function in playlists_old[playlist_name].get('functions', []):
@@ -142,7 +144,7 @@ class PlaylistsHandler(BaseHandler):
         self.database.update_session(token, playlists_new)
 
         # Run the metadata checker (needs to be called after update_session)
-        if not self.database.metadata_checker.checking:
+        if check_metadata and not self.database.metadata_checker.checking:
             self.database.metadata_checker.check_all()
 
         return {}
@@ -193,30 +195,26 @@ class RecommendHandler(BaseHandler):
             defer.returnValue(self.error(request, 'cannot find session', 404))
 
         playlists = session['playlists']
-        playlist = None
 
+        ident_playlist = None
         for p in playlists.itervalues():
             if p.get('type', 'user') == 'identity':
-                playlist = p
+                ident_playlist = p
 
-        playlist = playlist or playlists.get(name, None)
-        if playlist is None:
-            defer.returnValue(self.error(request, 'cannot find playlist', 404))
-
-        results = yield self.search.recommend(playlist)
-
-        offset = int(offset)
         page_size = int(self.config.get('api', 'page_size'))
 
+        # Get the recommendations
+        results = None
+        if ident_playlist:
+            offset = int(offset)
+            results = yield self.search.recommend(ident_playlist)
         if results is None:
+            offset = 0
             results = self.database.get_random_tracks(page_size)
-            response = {'offset': 0,
-                        'total': len(results),
-                        'results': results}
 
-        elif offset > len(results):
+        # Return the recommendations
+        if offset > len(results):
             response = self.error(request, 'offset is larger then result-set', 404)
-
         else:
             response = {'offset': offset,
                         'page_size': page_size,

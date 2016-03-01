@@ -24,8 +24,8 @@ CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
 
 def json_out(f):
     def wrap(*args, **kwargs):
-        request = args[1]
-        request.responseHeaders.addRawHeader('content-type', 'application/json')
+        self, request = args[:2]
+        self.add_response_headers(request)
         response = f(*args, **kwargs)
         return json.dumps(response)
     return wrap
@@ -57,12 +57,20 @@ class BaseHandler(Resource):
         request.setResponseCode(status_code)
         return {'error': message}
 
+    def add_response_headers(self, request):
+        request.responseHeaders.addRawHeader('content-type', 'application/json')
+        # CORS headers
+        request.responseHeaders.addRawHeader('Access-Control-Allow-Origin', '*')
+        request.responseHeaders.addRawHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        request.responseHeaders.addRawHeader("Access-Control-Allow-Headers", "X-Requested-With")
+
     def render_GET(self, request):
         def finish_req(res, request):
             request.write(json.dumps(res))
             if not request.finished:
                 request.finish()
 
+        self.add_response_headers(request)
         d = self._process_GET(request)
         d.addCallback(finish_req, request)
         return server.NOT_DONE_YET
@@ -77,6 +85,7 @@ class BaseHandler(Resource):
             if not request.finished:
                 request.finish()
 
+        self.add_response_headers(request)
         d = self._process_POST(request)
         d.addCallback(finish_req, request)
         return server.NOT_DONE_YET

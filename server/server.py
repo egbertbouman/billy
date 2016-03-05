@@ -62,7 +62,11 @@ class BaseHandler(Resource):
         # CORS headers
         request.responseHeaders.addRawHeader('Access-Control-Allow-Origin', '*')
         request.responseHeaders.addRawHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        request.responseHeaders.addRawHeader("Access-Control-Allow-Headers", "X-Requested-With")
+        request.responseHeaders.addRawHeader("Access-Control-Allow-Headers", "Authorization,X-Auth-Token,Content-Type,Accept")
+
+    @json_out
+    def render_OPTIONS(self, request):
+        return {}
 
     def render_GET(self, request):
         def finish_req(res, request):

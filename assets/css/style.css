@@ -216,3 +216,16 @@ span.rollover:hover {
 #page-selection-left, #page-selection-right {
     text-align: center;
 }
+.popover-content {
+    max-width: 500px;
+}
+.popover-content td:first-child {
+    white-space: nowrap;
+}
+.popover-content .label {
+    display:inline-block;
+}
+li[ng-click]{
+    cursor: pointer;
+}
+

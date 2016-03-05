@@ -80,4 +80,4 @@ var SoundCloudWaveform = {
 
         this.settings.context.fillRect(x, y, w, h);
     },
-}
+};

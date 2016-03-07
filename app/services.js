@@ -75,7 +75,7 @@ app.factory('YoutubePlayerFactory', function($rootScope) {
         $.getScript('http://www.youtube.com/iframe_api');
 
         $('<div id="' + css_selector + '"></div>').appendTo('body');
-        
+
         // Create player
         window.onYouTubeIframeAPIReady = function() {
             self.player = new YT.Player(css_selector, {
@@ -384,7 +384,7 @@ app.service('MusicService', function(jPlayerFactory, YoutubePlayerFactory, Sound
 });
 
 
-app.service('ApiService', function($http, HelperService) {
+app.service('ApiService', function($http, $cookies, HelperService) {
 
     this.api_base = 'http://musesync.ewi.tudelft.nl:8000/api';
     this.api_session = this.api_base + '/session';
@@ -395,6 +395,16 @@ app.service('ApiService', function($http, HelperService) {
     this.api_waveform = this.api_base + '/waveform?id={0}';
     this.api_info = this.api_base + '/info';
 
+    this.init = function() {
+        var port = location.port || (location.protocol === 'https:' ? '443' : '80');
+        this.cookie_name = 'token' + port;
+
+        this.token = HelperService.getParameterByName('token') || $cookies.get(this.cookie_name);
+        if (this.token) {
+            // Remove trailing '/' chars
+            this.token = this.token.replace(/\/+$/g, '');
+        }
+    };
     this.do_get = function(url, ignore_errors) {
         return $http.get(url).then(function successCallback(response) {
             return response.data;
@@ -410,23 +420,30 @@ app.service('ApiService', function($http, HelperService) {
         HelperService.alert(message);
         throw response;
     };
-    this.get_session = function(ignore_errors) {
-        return this.do_get(this.api_session, ignore_errors);
+    this.new_session = function(ignore_errors) {
+        var self = this;
+        return this.do_get(this.api_session, ignore_errors).then(function(data) {
+            self.token = data.token;
+            var now = new Date();
+            now.setYear(now.getYear() + 10);
+            $cookies.put(self.cookie_name, self.token);
+            return data;
+        });
     };
-    this.get_playlists = function(token, ignore_errors) {
-        return this.do_get(HelperService.formatString(this.api_playlists , token, ''), ignore_errors);
+    this.get_playlists = function(ignore_errors) {
+        return this.do_get(HelperService.formatString(this.api_playlists , this.token, ''), ignore_errors);
     };
-    this.post_playlists = function(token, playlists, ignore_errors) {
-        return this.do_post(HelperService.formatString(this.api_playlists, token, ''), JSON.stringify(playlists), ignore_errors);
+    this.post_playlists = function(playlists, ignore_errors) {
+        return this.do_post(HelperService.formatString(this.api_playlists, this.token, ''), JSON.stringify(playlists), ignore_errors);
     };
     this.get_tracks = function(query, offset, ignore_errors) {
         return this.do_get(HelperService.formatString(this.api_tracks, query, '', offset), ignore_errors);
     };
-    this.get_recommendation = function(token, name, offset, ignore_errors) {
-        return this.do_get(HelperService.formatString(this.api_recommend, token, name, offset), ignore_errors);
+    this.get_recommendation = function(name, offset, ignore_errors) {
+        return this.do_get(HelperService.formatString(this.api_recommend, this.token, name, offset), ignore_errors);
     };
-    this.post_clicklog = function(token, clicklog, ignore_errors) {
-        return this.do_post(HelperService.formatString(this.api_clicklog, token, ''), clicklog, ignore_errors);
+    this.post_clicklog = function(clicklog, ignore_errors) {
+        return this.do_post(HelperService.formatString(this.api_clicklog, this.token, ''), clicklog, ignore_errors);
     };
     this.get_waveform = function(track_id, ignore_errors) {
         return this.do_get(HelperService.formatString(this.api_waveform, track_id, ''), ignore_errors);
@@ -434,6 +451,8 @@ app.service('ApiService', function($http, HelperService) {
     this.get_info = function(ignore_errors) {
         return this.do_get(this.api_info, ignore_errors);
     };
+
+    this.init();
 });
 
 

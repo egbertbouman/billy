@@ -4,28 +4,20 @@ app.controller('PlaylistCtrl', function ($scope, $rootScope, $cookies, $uibModal
     $scope.musicservice = MusicService;
 
     var load_playlists = function() {
-        var port = location.port || (location.protocol === 'https:' ? '443' : '80');
-        var cookie_name = 'token' + port;
-
-        $scope.token = HelperService.getParameterByName('token') || $cookies.get(cookie_name);
-        // Remove trailing '/' chars
-        $scope.token = $scope.token.replace(/\/+$/g, '');
-
-        ApiService.get_playlists($scope.token, true).then(function success(data) {
+        ApiService.get_playlists(true).then(function success(data) {
             // Share playlists between this controller and MusicService
             MusicService.set_playlists($scope.playlists = data);
             if ($.isEmptyObject(data))
                 $scope.playlist_modal();
         }, function error(response) {
-            if (response.status == 404 && HelperService.getParameterByName('token')) {
+            if (response.status == 404 && ApiService.token !== undefined) {
                 document.body.innerHTML = '';
                 HelperService.alert('Failed to find Billy session');
             }
             else {
                 // Create a new Billy session
-                ApiService.get_session().then(function (data) {
-                    $scope.token = data.token;
-                    $cookies.put(cookie_name, $scope.token, {expires: 3650});
+                ApiService.new_session().then(function (data) {
+                    MusicService.set_playlists($scope.playlists = {});
                     $scope.playlist_modal();
                 });
             }
@@ -44,7 +36,7 @@ app.controller('PlaylistCtrl', function ($scope, $rootScope, $cookies, $uibModal
         });
 
         // Store playlists in remote database
-        ApiService.post_playlists($scope.token, playlists);
+        ApiService.post_playlists(playlists);
     };
     $scope.export_playlists = function() {
         var blob = new Blob([JSON.stringify($scope.playlists)], { type:"application/json;charset=utf-8;" });
@@ -122,7 +114,7 @@ app.controller('PlaylistCtrl', function ($scope, $rootScope, $cookies, $uibModal
         // Perform recommendation when user switches playlist tabs
         Object.keys(new_value).forEach(function(playlist_name) {
             if ((new_value[playlist_name] || {}).active && !(old_value[playlist_name] || {}).active) {
-                $rootScope.$broadcast('recommend', $scope.token, playlist_name);
+                $rootScope.$broadcast('recommend', playlist_name);
                 current_playlist = playlist_name;
             }
         });
@@ -209,7 +201,7 @@ app.controller('ResultCtrl', function ($rootScope, $scope, MusicService, ApiServ
     }
     function recommend() {
         var offset = ($scope.tabs.recommendation.current_page - 1) * $scope.tabs.recommendation.page_size;
-        ApiService.get_recommendation($scope.token, $scope.playlist_name, offset).then(function(data) {
+        ApiService.get_recommendation($scope.playlist_name, offset).then(function(data) {
             $scope.tabs.recommendation.total_items = data.total;
             $scope.tabs.recommendation.page_size = data.page_size;
             angular.copy(data.results, $scope.tabs.recommendation.results);
@@ -233,8 +225,7 @@ app.controller('ResultCtrl', function ($rootScope, $scope, MusicService, ApiServ
         $scope.query = query;
         search();
     });
-    $scope.$on('recommend', function(event, token, playlist_name) {
-        $scope.token = token;
+    $scope.$on('recommend', function(event, playlist_name) {
         $scope.playlist_name = playlist_name;
         recommend();
     });
@@ -284,7 +275,7 @@ app.controller('PlayerCtrl', function ($scope, $rootScope, $interval, HelperServ
 
 app.controller('HeaderCtrl', function ($rootScope, $scope, HelperService, ApiService) {
 
-    $scope.url = HelperService.replaceParameter(window.location.href, 'token', this.token);
+    $scope.url = HelperService.replaceParameter(window.location.href, 'token', ApiService.token);
 
     $scope.search = function() {
         $rootScope.$broadcast('search', $scope.query);

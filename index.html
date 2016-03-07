@@ -2,7 +2,7 @@
 <html data-ng-app="billy">
   <head>
     <title>Billy - the basic playlist builder</title>
-    
+
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
@@ -41,7 +41,7 @@
             <span class="glyphicon glyphicon-info-sign" popover-trigger="outsideClick" popover-placement="bottom-right" uib-popover-template="'app/views/status_popover.html'" popover-is-open="status_shown" popover-title="Billy status"></span>
           </p>
         </div>
-        
+
         <div id="navbar" class="collapse navbar-collapse">
           <form class="navbar-form" ng-submit="search()">
             <div class="form-group" style="display:inline;">
@@ -104,7 +104,7 @@
       <div ng-controller="ResultCtrl" class="col-sm-6">
 
         <uib-tabset>
-          <uib-tab index="0" heading="Search results" active="tabs.search.active">
+          <uib-tab index="0" heading="Search results" active="tabs.search.active" ng-cloak>
             <div ng-show="tabs.search.results.length" class="column-description">The songs below match your search terms best:</div>
             <div class="tab-pane fade in list-group" id="search" name="Search results">
                 <li ng-repeat="result in tabs.search.results" class="list-group-item shorten" data-track-id="{{ result._id }}" ng-class="(musicservice.track == result) ? 'playlist-current' : ''">
@@ -121,7 +121,7 @@
                 </div>
             </div>
           </uib-tab>
-          <uib-tab index="1" heading="Recommendations" active="tabs.recommendation.active">
+          <uib-tab index="1" heading="Recommendations" active="tabs.recommendation.active" ng-cloak>
             <div class="tab-pane fade in active list-group" id="recommend" name="Recommendations">
                 <li ng-repeat="result in tabs.recommendation.results" class="list-group-item shorten" data-track-id="{{ result._id }}" ng-class="(musicservice.track == result) ? 'playlist-current' : ''">
                     <div class="pull-right m-l btn-group">
@@ -143,7 +143,7 @@
 
       <div ng-controller="PlaylistCtrl" class="col-sm-6">
         <uib-tabset>
-          <uib-tab ng-repeat="(playlist_name, playlist) in playlists" index="$index" heading="{{ playlist_name }}" active="tabs[playlist_name].active" select="alertMe()">
+          <uib-tab ng-repeat="(playlist_name, playlist) in playlists" index="$index" heading="{{ playlist_name }}" active="tabs[playlist_name].active" ng-cloak>
               <uib-tab-heading>
                   <i class="glyphicon" ng-class="playlist.type == 'identity' ? 'glyphicon-user' : ''"></i> {{ playlist_name }}
               </uib-tab-heading>
@@ -181,7 +181,7 @@
   <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.4.5/angular-cookies.min.js"></script>
 
   <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.2.1/jquery.min.js"></script>
-  <script src="//cdnjs.cloudflare.com/ajax/libs/jplayer/2.9.2/jplayer/jquery.jplayer.min.js"></script>  
+  <script src="//cdnjs.cloudflare.com/ajax/libs/jplayer/2.9.2/jplayer/jquery.jplayer.min.js"></script>
 
   <!-- UI Libs -->
   <script src="//cdnjs.cloudflare.com/ajax/libs/angular-ui-bootstrap/1.1.2/ui-bootstrap-tpls.min.js"></script>

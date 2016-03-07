@@ -47,7 +47,7 @@ app.controller('PlaylistCtrl', function ($scope, $rootScope, $cookies, $uibModal
         ApiService.post_playlists($scope.token, playlists);
     };
     $scope.export_playlists = function() {
-        var blob = new Blob([JSON.stringify($scope.playlists)], { type:"application/json;charset=utf-8;" });           
+        var blob = new Blob([JSON.stringify($scope.playlists)], { type:"application/json;charset=utf-8;" });
         var download_link = angular.element('<a></a>');
         download_link.attr('href', window.URL.createObjectURL(blob));
         download_link.attr('download', 'playlists.json');
@@ -71,10 +71,6 @@ app.controller('PlaylistCtrl', function ($scope, $rootScope, $cookies, $uibModal
                     }
                     $scope.playlists[name] = playlists[name];
                 }
-                // If no playlist was selected, select one now
-                if ($scope.current_playlist === undefined)
-                    $scope.tabs[name].active = true;
-
                 if (skipped.length > 0)
                     HelperService.alert('You already have playlist(s) with the following name(s): ' + skipped.join(', ') + '. Since playlist names have to be unique, these will not be imported.');
             };
@@ -86,7 +82,7 @@ app.controller('PlaylistCtrl', function ($scope, $rootScope, $cookies, $uibModal
     $scope.playlist_modal = function () {
         var modalInstance = $uibModal.open({
             animation: false,
-            templateUrl: '/app/views/playlist_modal.html',
+            templateUrl: 'app/views/playlist_modal.html',
             controller: 'PlaylistModalCtrl',
         });
         modalInstance.result.then(function success(result) {
@@ -115,22 +111,32 @@ app.controller('PlaylistCtrl', function ($scope, $rootScope, $cookies, $uibModal
         MusicService.load_and_play({name: playlist_name, index: index});
     };
     $scope.add = function(track) {
-        MusicService.add(track);
+        MusicService.add(current_playlist, track);
     };
     $scope.remove = function(playlist_name, index) {
         MusicService.remove(playlist_name, index);
     };
 
+    var current_playlist;
     $scope.$watch('tabs', function(new_value, old_value) {
         // Perform recommendation when user switches playlist tabs
         Object.keys(new_value).forEach(function(playlist_name) {
-            if ((new_value[playlist_name] || {}).active && !(old_value[playlist_name] || {}).active)
+            if ((new_value[playlist_name] || {}).active && !(old_value[playlist_name] || {}).active) {
                 $rootScope.$broadcast('recommend', $scope.token, playlist_name);
+                current_playlist = playlist_name;
+            }
         });
+    }, true);
+    $scope.$watch('playlists', function(new_value, old_value) {
+        if (old_value !== undefined)
+            save_playlists();
     }, true);
 
     $scope.$on('loadstart', function(event, player_type) {
         $('#yt_player').toggle((player_type === 'youtube'));
+    });
+    $scope.$on('add', function(event, track) {
+        $scope.add(track);
     });
 
     load_playlists();
@@ -153,7 +159,7 @@ app.controller('PlaylistModalCtrl',  function ($scope, $uibModalInstance) {
             return;
 
         // TODO: enforce unique name
-        
+
         var functions = [];
         Object.keys($scope.functions).forEach(function(playlist_name) {
             if ($scope.functions[playlist_name])
@@ -177,16 +183,16 @@ app.controller('ResultCtrl', function ($rootScope, $scope, MusicService, ApiServ
 
     $scope.tabs = {
         search: {
-            active:true,
+            active: false,
             current_page: 1,
             page_size: 0,
-            results:[]
+            results: []
         },
         recommendation: {
-            active:false,
+            active: true,
             current_page: 1,
             page_size: 0,
-            results:[]
+            results: []
         }
     };
     $scope.musicservice = MusicService;
@@ -214,7 +220,7 @@ app.controller('ResultCtrl', function ($rootScope, $scope, MusicService, ApiServ
         MusicService.load_and_play({track: track});
     };
     $scope.add = function(track) {
-        MusicService.add(track);
+        $rootScope.$broadcast('add', track);
     };
     $scope.page_changed = function() {
         if ($scope.tabs.search.active)

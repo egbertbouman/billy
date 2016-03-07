@@ -375,8 +375,8 @@ app.service('MusicService', function(jPlayerFactory, YoutubePlayerFactory, Sound
             this.index = previous_index;
         }
     };
-    this.add = function(track) {
-        this.playlists[this.name].tracks.push(track);
+    this.add = function(playlist_name, track) {
+        this.playlists[playlist_name].tracks.push(track);
     };
     this.remove = function(playlist_name, index) {
         this.playlists[playlist_name].tracks.splice(index, 1);
@@ -406,12 +406,12 @@ app.service('ApiService', function($http, HelperService) {
         }, ignore_errors ? null : this.show_and_throw_error);
     };
     this.show_and_throw_error = function(response) {
-        var message = response.data.error ? 'Got error from server (' + response.data.error + ')' : 'Failed to contact Billy server';
+        var message = (response.data && response.data.error) ? 'Got error from server (' + response.data.error + ')' : 'Failed to contact Billy server';
         HelperService.alert(message);
         throw response;
     };
     this.get_session = function(ignore_errors) {
-        return this.do_get(api_session, ignore_errors);
+        return this.do_get(this.api_session, ignore_errors);
     };
     this.get_playlists = function(token, ignore_errors) {
         return this.do_get(HelperService.formatString(this.api_playlists , token, ''), ignore_errors);
@@ -472,7 +472,7 @@ app.service('HelperService', function($uibModal) {
     this.alert = function(message) {
         $uibModal.open({
             animation: false,
-            templateUrl: '/app/views/alert_modal.html',
+            templateUrl: 'app/views/alert_modal.html',
             controller: function($scope) {
                 $scope.message = message;
             },

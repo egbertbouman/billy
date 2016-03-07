@@ -138,21 +138,20 @@ class LastFm(object):
             now = str(int(time.time()))
 
             musicinfo = track.get('musicinfo', {})
-            if musicinfo and 'artist_name' in musicinfo:
+            if 'track' not in response_dict:
+                self.logger.info('Could not update metadata for track %s (reason: %s)', track['_id'], response_dict.get('message', 'unknown'))
+            elif musicinfo and 'artist_name' in musicinfo:
                 musicinfo['playcount'][now] = response_dict['track']['playcount']
                 musicinfo['listeners'][now] = response_dict['track']['listeners']
             else:
-                if 'track' in response_dict:
-                    musicinfo.update({'artist_name': artist_name,
-                                      'track_name': track_name,
-                                      'tags': {'vartags': [t['name'] for t in response_dict['track']['toptags']['tag']]},
-                                      'playcount': {now: response_dict['track']['playcount']},
-                                      'listeners': {now: response_dict['track']['listeners']}})
+                musicinfo.update({'artist_name': artist_name,
+                                  'track_name': track_name,
+                                  'tags': {'vartags': [t['name'] for t in response_dict['track']['toptags']['tag']]},
+                                  'playcount': {now: response_dict['track']['playcount']},
+                                  'listeners': {now: response_dict['track']['listeners']}})
 
-                    similar_artists = yield self.similar_artists(artist_name)
-                    if similar_artists:
-                        musicinfo['similar_artists'] = similar_artists
-                else:
-                    self.logger.info('Could not update metadata for track %s (reason: %s)', track['_id'], response_dict.get('message', 'unknown'))
+                similar_artists = yield self.similar_artists(artist_name)
+                if similar_artists:
+                    musicinfo['similar_artists'] = similar_artists
 
             defer.returnValue(musicinfo)

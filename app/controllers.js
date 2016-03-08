@@ -127,6 +127,9 @@ app.controller('PlaylistCtrl', function ($scope, $rootScope, $cookies, $uibModal
     $scope.$on('loadstart', function(event, player_type) {
         $('#yt_player').toggle((player_type === 'youtube'));
     });
+    $scope.$on('ended', function(event, player_type) {
+        $scope.next();
+    });
     $scope.$on('add', function(event, track) {
         $scope.add(track);
     });

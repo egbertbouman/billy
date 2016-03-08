@@ -7,25 +7,25 @@ app.factory('jPlayerFactory', function($rootScope) {
             wmode: 'window',
             cssSelectorAncestor: css_selector_ui,
             ready: function () {
-                $rootScope.$broadcast('ready', 'youtube');
+                $rootScope.$broadcast('ready', 'jplayer');
             },
             play: function () {
-                $rootScope.$broadcast('playing', 'youtube');
+                $rootScope.$broadcast('playing', 'jplayer');
             },
             ended: function () {
-                $rootScope.$broadcast('ended', 'youtube');
+                $rootScope.$broadcast('ended', 'jplayer');
             },
             pause: function () {
-                $rootScope.$broadcast('paused', 'youtube');
+                $rootScope.$broadcast('paused', 'jplayer');
             },
             timeupdate: function () {
-                $rootScope.$broadcast('timeupdate', 'youtube');
+                $rootScope.$broadcast('timeupdate', 'jplayer');
             },
             loadstart: function () {
-                $rootScope.$broadcast('loadstart', 'youtube');
+                $rootScope.$broadcast('loadstart', 'jplayer');
             },
             error: function () {
-                $rootScope.$broadcast('error', 'youtube');
+                $rootScope.$broadcast('error', 'jplayer');
             }
         });
     };
@@ -263,7 +263,7 @@ app.factory('SoundCloudPlayerFactory', function($rootScope) {
 });
 
 
-app.service('MusicService', function(jPlayerFactory, YoutubePlayerFactory, SoundCloudPlayerFactory) {
+app.service('MusicService', function($rootScope, jPlayerFactory, YoutubePlayerFactory, SoundCloudPlayerFactory) {
 
     // Initialize players
     jPlayerFactory.create('#player-core', '#player-ui');
@@ -302,18 +302,14 @@ app.service('MusicService', function(jPlayerFactory, YoutubePlayerFactory, Sound
         }
 
         this.get_player().load_and_play(this.track);
-        this.playing = true;
     };
     this.play = function() {
-        this.playing = true;
         this.get_player().play();
     };
     this.pause = function() {
-        this.playing = false;
         this.get_player().pause();
     };
     this.stop = function() {
-        this.playing = false;
         this.get_player().stop();
     };
     this.seek = function(position) {
@@ -381,6 +377,17 @@ app.service('MusicService', function(jPlayerFactory, YoutubePlayerFactory, Sound
     this.remove = function(playlist_name, index) {
         this.playlists[playlist_name].tracks.splice(index, 1);
     };
+
+    var self = this;
+    $rootScope.$on('playing', function(event, player_type) {
+        self.playing = true;
+    });
+    $rootScope.$on('pause', function(event, player_type) {
+        self.playing = false;
+    });
+    $rootScope.$on('ended', function(event, player_type) {
+        self.playing = false;
+    });
 });
 
 

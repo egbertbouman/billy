@@ -7,25 +7,22 @@ app.factory('jPlayerFactory', function($rootScope) {
             wmode: 'window',
             cssSelectorAncestor: css_selector_ui,
             ready: function () {
-                $rootScope.$broadcast('ready', 'jplayer');
+                $rootScope.$broadcast('ready');
             },
             play: function () {
-                $rootScope.$broadcast('playing', 'jplayer');
+                $rootScope.$broadcast('playing');
             },
             ended: function () {
-                $rootScope.$broadcast('ended', 'jplayer');
+                $rootScope.$broadcast('ended');
             },
             pause: function () {
-                $rootScope.$broadcast('paused', 'jplayer');
-            },
-            timeupdate: function () {
-                $rootScope.$broadcast('timeupdate', 'jplayer');
+                $rootScope.$broadcast('paused');
             },
             loadstart: function () {
-                $rootScope.$broadcast('loadstart', 'jplayer');
+                $rootScope.$broadcast('loadstart');
             },
             error: function () {
-                $rootScope.$broadcast('error', 'jplayer');
+                $rootScope.$broadcast('error');
             }
         });
     };
@@ -101,31 +98,26 @@ app.factory('YoutubePlayerFactory', function($rootScope) {
                     'onStateChange': function (state) {
                         switch(state.data) {
                             case -1:
-                                $rootScope.$broadcast('timeupdate', 'youtube');
+                                $rootScope.$broadcast('loadstart');
                                 break;
                             case 0:
-                                $rootScope.$broadcast('ended', 'youtube');
+                                $rootScope.$broadcast('ended');
                                 break;
                             case 1:
-                                $rootScope.$broadcast('playing', 'youtube');
-                                if (self.player_timer !== undefined)
-                                    clearInterval(self.player_timer);
-                                self.player_timer = setInterval(function () {
-                                    $rootScope.$broadcast('timeupdate', 'youtube');
-                                }, 250);
+                                $rootScope.$broadcast('playing');
                                 break;
                             case 2:
-                                $rootScope.$broadcast('paused', 'youtube');
+                                $rootScope.$broadcast('paused');
                                 break;
                             case 5:
-                                $rootScope.$broadcast('loadstart', 'youtube');
+                                $rootScope.$broadcast('loadstart');
                                 break;
                             default:
                                 // do nothing
                         }
                     },
                     'onError': function (error) {
-                        $rootScope.$broadcast('error', 'youtube', error);
+                        $rootScope.$broadcast('error', error);
                     }
                 }
             });
@@ -145,11 +137,7 @@ app.factory('YoutubePlayerFactory', function($rootScope) {
     };
     player.stop = function() {
         this.player.stopVideo();
-        if (this.player_timer !== undefined) {
-            clearInterval(this.player_timer);
-            this.player_timer = undefined;
-            $rootScope.$broadcast('paused', 'youtube');
-        }
+        $rootScope.$broadcast('paused');
     };
     player.clear = function() {
         this.stop();
@@ -202,28 +190,24 @@ app.factory('SoundCloudPlayerFactory', function($rootScope) {
                     $rootScope.$broadcast('ready');
             });
             self.player.bind(SC.Widget.Events.PLAY, function() {
-                $rootScope.$broadcast('playing', 'soundcloud');
+                $rootScope.$broadcast('playing');
             });
             self.player.bind(SC.Widget.Events.PAUSE, function() {
-                $rootScope.$broadcast('paused', 'soundcloud');
+                $rootScope.$broadcast('paused');
             });
             self.player.bind(SC.Widget.Events.FINISH, function() {
-                $rootScope.$broadcast('ended', 'soundcloud');
-            });
-            self.player.bind(SC.Widget.Events.SEEK, function() {
-                $rootScope.$broadcast('timeupdate', 'soundcloud');
+                $rootScope.$broadcast('ended');
             });
             self.player.bind(SC.Widget.Events.PLAY_PROGRESS, function() {
                 self.player.getPosition(function(value) {
                     if (value === 0)
-                        $rootScope.$broadcast('loadstart', 'soundcloud');
+                        $rootScope.$broadcast('loadstart');
                     self.player_position = value / 1000;
                 });
                 self.player.getDuration(function(value) { self.player_duration = value / 1000; });
-                $rootScope.$broadcast('timeupdate', 'soundcloud');
             });
             self.player.bind(SC.Widget.Events.ERROR, function() {
-                $rootScope.$broadcast('error', 'soundcloud');
+                $rootScope.$broadcast('error');
             });
         });
     };
@@ -283,12 +267,18 @@ app.service('MusicService', function($rootScope, jPlayerFactory, YoutubePlayerFa
     this.index = 0;
 
     // Player methods
-    this.get_player = function() {
+    this.get_player_type = function() {
         var link = (this.track && this.track.link) || '';
-        var type = (link.indexOf('youtube:') === 0) ? 'youtube' : ((link.indexOf('soundcloud:') === 0) ? 'soundcloud' : 'jplayer');
-        return this.players[type];
+        return (link.indexOf('youtube:') === 0) ? 'youtube' : ((link.indexOf('soundcloud:') === 0) ? 'soundcloud' : 'jplayer');
+    };
+    this.get_player = function() {
+        return this.players[this.get_player_type()];
     };
     this.load_and_play = function(params) {
+        // Stop currently playing track
+        if (this.track)
+            this.stop();
+
         if (params.index !== undefined && params.name) {
             // Load track from playlist
             this.track = this.playlists[params.name].tracks[params.index];
@@ -379,13 +369,13 @@ app.service('MusicService', function($rootScope, jPlayerFactory, YoutubePlayerFa
     };
 
     var self = this;
-    $rootScope.$on('playing', function(event, player_type) {
+    $rootScope.$on('playing', function(event) {
         self.playing = true;
     });
-    $rootScope.$on('pause', function(event, player_type) {
+    $rootScope.$on('paused', function(event) {
         self.playing = false;
     });
-    $rootScope.$on('ended', function(event, player_type) {
+    $rootScope.$on('ended', function(event) {
         self.playing = false;
     });
 });

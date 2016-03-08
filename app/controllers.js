@@ -124,10 +124,10 @@ app.controller('PlaylistCtrl', function ($scope, $rootScope, $cookies, $uibModal
             save_playlists();
     }, true);
 
-    $scope.$on('loadstart', function(event, player_type) {
-        $('#yt_player').toggle((player_type === 'youtube'));
+    $scope.$on('loadstart', function(event) {
+        $('#yt_player').toggle((MusicService.get_player_type() === 'youtube'));
     });
-    $scope.$on('ended', function(event, player_type) {
+    $scope.$on('ended', function(event) {
         $scope.next();
     });
     $scope.$on('add', function(event, track) {

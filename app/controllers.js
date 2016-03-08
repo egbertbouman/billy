@@ -126,6 +126,8 @@ app.controller('PlaylistCtrl', function ($scope, $rootScope, $cookies, $uibModal
 
     $scope.$on('loadstart', function(event) {
         $('#yt_player').toggle((MusicService.get_player_type() === 'youtube'));
+        if (MusicService.get_player_type() === 'soundcloud')
+            MusicService.set_volume(MusicService.volume);
     });
     $scope.$on('ended', function(event) {
         $scope.next();
@@ -238,6 +240,7 @@ app.controller('ResultCtrl', function ($rootScope, $scope, MusicService, ApiServ
 
 app.controller('PlayerCtrl', function ($scope, $rootScope, $interval, HelperService, MusicService) {
 
+    $scope.musicservice = MusicService;
     $scope.load_and_play = function(track) { MusicService.load_and_play({track: track}); };
     $scope.play = function() { MusicService.play(); };
     $scope.pause = function() { MusicService.pause(); };

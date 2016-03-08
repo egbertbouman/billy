@@ -312,7 +312,9 @@ app.service('MusicService', function($rootScope, jPlayerFactory, YoutubePlayerFa
         return this.get_player().get_duration();
     };
     this.set_volume = function(volume) {
-        this.get_player().set_volume(volume);
+        Object.keys(this.players).forEach(function(type) {
+            this.players[type].set_volume(volume);
+        }, this);
         this.volume = volume;
     };
 

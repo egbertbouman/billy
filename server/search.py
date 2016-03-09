@@ -91,7 +91,7 @@ class Search(object):
         url = ES_SEARCH_URL.format(host=self.host, port=self.port, index=self.database.db.name, type='track', size=max_results, offset=0)
 
         query_dict = build_bool_query('must', {})
-        query_dict['query']['bool']['must'] = [build_query(query, field)]
+        query_dict['query']['bool']['must'] = [build_query(query, field)['query']]
 
         if sources:
             # Search within specific sources

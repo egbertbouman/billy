@@ -1,32 +1,42 @@
 import json
+import urllib
+import urlparse
 import logging
+import cookielib
 import dateutil.tz
 
 from datetime import datetime
 from StringIO import StringIO
 from collections import OrderedDict
-from twisted.web.client import Agent, FileBodyProducer
+from twisted.web.client import Agent, CookieAgent, FileBodyProducer
 from twisted.web.http_headers import Headers
 from twisted.internet.protocol import Protocol
 from twisted.internet import reactor, defer
 from twisted.web._newclient import _WrapperException
+from requests.cookies import create_cookie
 
 
 class Response(object):
 
-    def __init__(self, status_code, content):
+    def __init__(self, status_code, cookiejar, content):
         self.status_code = status_code
+        self.cookiejar = cookiejar
         self.content = content
 
     @property
     def json(self):
         return json.loads(self.content)
 
+    @property
+    def cookies(self):
+        return {cookie.name: cookie.value for cookie in self.cookiejar}
+
 
 class BodyReceiver(Protocol):
 
-    def __init__(self, status_code, finished):
+    def __init__(self, status_code, cookiejar, finished):
         self.status_code = status_code
+        self.cookiejar = cookiejar
         self.finished = finished
         self.data = ''
 
@@ -34,21 +44,46 @@ class BodyReceiver(Protocol):
         self.data += bytes
 
     def connectionLost(self, reason):
-        self.finished.callback(Response(self.status_code, self.data))
+        self.finished.callback(Response(self.status_code, self.cookiejar, self.data))
 
 
-def http_request(method, url, data=None, headers={}, timeout=30, ignore_errors=True):
+def http_request(method, url, params={}, data=None, headers={}, cookies=None, timeout=30, ignore_errors=True):
+    # Urlencode does not accept unicode, so convert to str first
     url = url.encode('utf-8') if isinstance(url, unicode) else url
-    agent = Agent(reactor, connectTimeout=timeout)
-    body = FileBodyProducer(StringIO(data)) if data else None
-    d = agent.request(method, url, Headers(headers), body)
+    for k, v in params.items():
+        params[k] = v.encode('utf-8') if isinstance(v, unicode) else v
 
-    def handle_response(response):
+    # Add any additional params to the url
+    url_parts = list(urlparse.urlparse(url))
+    query = dict(urlparse.parse_qsl(url_parts[4]))
+    query.update(params)
+    url_parts[4] = urllib.urlencode(query, doseq=True)
+    url = urlparse.urlunparse(url_parts)
+
+    # Handle cookies
+    if isinstance(cookies, cookielib.CookieJar):
+        cookiejar = cookies
+    else:
+        cookiejar = cookielib.CookieJar()
+        for name, value in (cookies or {}).iteritems():
+            cookiejar.set_cookie(create_cookie(name=name, value=value))
+
+    # Urlencode the data, if needed
+    if isinstance(data, dict):
+        data = urllib.urlencode(data)
+        headers['Content-Type'] = 'application/x-www-form-urlencoded'
+
+    agent = Agent(reactor, connectTimeout=timeout)
+    cookie_agent = CookieAgent(agent, cookiejar)
+    body = FileBodyProducer(StringIO(data)) if data else None
+    d = cookie_agent.request(method, url, Headers({k: [v] for k, v in headers.iteritems()}), body)
+
+    def handle_response(response, cookiejar):
         if 'audio/mpeg' in response.headers.getRawHeaders('content-type')[-1]:
             # Don't download any multimedia files
             raise Exception('reponse contains a multimedia file')
         d = defer.Deferred()
-        response.deliverBody(BodyReceiver(response.code, d))
+        response.deliverBody(BodyReceiver(response.code, cookiejar, d))
         return d
 
     def handle_error(error):
@@ -58,24 +93,24 @@ def http_request(method, url, data=None, headers={}, timeout=30, ignore_errors=T
             reason = error.getErrorMessage()
         logger = logging.getLogger(__name__)
         logger.error('Failed to GET %s (reason: %s)', url, reason)
-        return Response(0, '')
+        return Response(0, cookielib.CookieJar(), '')
 
-    d.addCallback(handle_response)
+    d.addCallback(handle_response, cookiejar)
     if ignore_errors:
         d.addErrback(handle_error)
     return d
 
 
-def get_request(url, headers={}, timeout=30, ignore_errors=True):
-    return  http_request('GET', url, headers=headers, timeout=timeout, ignore_errors=ignore_errors)
+def get_request(url, **kwargs):
+    return  http_request('GET', url, **kwargs)
 
 
-def post_request(url, data, headers={}, timeout=30, ignore_errors=True):
-    return  http_request('POST', url, data, headers=headers, timeout=timeout, ignore_errors=ignore_errors)
+def post_request(url, **kwargs):
+    return  http_request('POST', url, **kwargs)
 
 
-def put_request(url, data, headers={}, timeout=30, ignore_errors=True):
-    return  http_request('PUT', url, data, headers=headers, timeout=timeout, ignore_errors=ignore_errors)
+def put_request(url, **kwargs):
+    return  http_request('PUT', url, **kwargs)
 
 
 # From: http://stackoverflow.com/questions/2437617/limiting-the-size-of-a-python-dictionary

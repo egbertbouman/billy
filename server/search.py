@@ -126,7 +126,8 @@ class Search(object):
                 similar_artists |= set(track.get('musicinfo', {}).get('similar_artists', []))
 
             all_artists = list(artists) + list(similar_artists)
-            query = ' '.join(map(lambda x: '\"' + x + '\"', all_artists))
+            random.shuffle(all_artists)
+            query = ' '.join(map(lambda x: '\"' + x + '\"', all_artists[:30]))
             search_results = yield self.search(query, sources=sources)
 
             filtered_search_results = []

@@ -1,4 +1,4 @@
-app.controller('PlaylistCtrl', function ($scope, $rootScope, $cookies, $uibModal, HelperService, MusicService, ApiService) {
+app.controller('PlaylistCtrl', function ($scope, $rootScope, $timeout, $cookies, $uibModal, HelperService, MusicService, ApiService) {
 
     $scope.tabs = {};
     $scope.musicservice = MusicService;
@@ -104,9 +104,11 @@ app.controller('PlaylistCtrl', function ($scope, $rootScope, $cookies, $uibModal
     };
     $scope.add = function(track) {
         MusicService.add(current_playlist, track);
+        $timeout(function() { $rootScope.$broadcast('recommend', current_playlist); }, 5000);
     };
     $scope.remove = function(playlist_name, index) {
         MusicService.remove(playlist_name, index);
+        $timeout(function() { $rootScope.$broadcast('recommend', playlist_name); }, 5000);
     };
 
     var current_playlist;
@@ -166,7 +168,8 @@ app.controller('PlaylistModalCtrl',  function ($scope, $uibModalInstance) {
         $uibModalInstance.close({
             name: $scope.name,
             description: $scope.description,
-            functions: functions
+            functions: functions,
+            type: $scope.identity_playlist ? 'identity' : 'user'
         });
     };
 

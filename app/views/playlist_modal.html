@@ -14,6 +14,14 @@
             <textarea class="form-control" rows="3" placeholder="For what purpose would you like to use this playlist? Please enter a short description here." uib-popover="Please fill out this field." popover-is-open="description_popover" popover-trigger="none" ng-model="description"></textarea>
         </div>
         <div class="form-group">
+            <div class="checkbox">
+               <label>
+                   <input type="checkbox" ng-model="identity_playlist">
+                   This playlist is an identity playlist
+               </label>
+            </div>
+        </div>
+        <div class="form-group">
             <label class="control-label">How will you use the playlist music?</label>
             <div class="checkbox">
                 <label>

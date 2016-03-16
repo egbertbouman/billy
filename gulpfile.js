@@ -15,7 +15,7 @@ var gulp = require('gulp'),
     revReplace = require('gulp-rev-replace');
 
 var jsTask = lazypipe()
-    .pipe(addsrc, 'tmp/templates.js')
+    .pipe(addsrc.append, 'tmp/templates.js')
     .pipe(concat, 'assets/js/app.js')
     .pipe(ngAnnotate)
     .pipe(uglify)

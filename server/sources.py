@@ -22,6 +22,9 @@ YOUTUBE_CHANNEL_URL = u'https://www.googleapis.com/youtube/v3/channels?part=cont
 YOUTUBE_PLAYLISTITEMS_URL = u'https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId={id}&page_token&pageToken={token}&maxResults=50&key={api_key}'
 YOUTUBE_PLAYLIST_URL = u'https://www.googleapis.com/youtube/v3/playlistItems?key={api_key}&playlistId={id}&part=snippet&pageToken={token}&maxResults=50&order=date'
 SOUNDCLOUD_RESOLVE_URL = u'https://api.soundcloud.com/resolve.json?url={url}&client_id={api_key}'
+LASTFM_LOGIN_URL = u'https://secure.last.fm/login'
+LASTFM_TRACKS_URL = u'http://www.last.fm/music/{artist}/+tracks'
+LASTFM_SETTINGS_URL = u'http://www.last.fm/settings/website'
 
 
 def extract_youtube_id(url):
@@ -89,6 +92,8 @@ class SourceChecker(object):
         last_check = source_dict.get('last_check', 0)
         if source_dict['site'] == 'youtube':
             return YoutubeSource(source_dict['type'], source_dict['data'], self.config, last_check)
+        elif source_dict['site'] == 'lastfm':
+            return LastfmSource(source_dict['type'], source_dict['data'], self.config, last_check)
         elif source_dict['type'] == 'rss':
             return RSSSource(source_dict['data'], self.config, last_check)
 
@@ -327,3 +332,73 @@ class YoutubeSource(object):
 
     def __str__(self):
         return "YoutubeSource_%s_%s" % (self.type, self.id)
+
+
+class LastfmSource(object):
+
+    def __init__(self, type, data, config, last_check=0):
+        self.logger = logging.getLogger(__name__)
+
+        self.type = type
+        self.data = data
+        self.config = config
+        self.last_check = last_check
+
+    @inlineCallbacks
+    def fetch(self, since=0):
+        results = []
+
+        username = self.config.get('sources', 'lastfm_username')
+        password = self.config.get('sources', 'lastfm_password')
+
+        response = yield get_request(LASTFM_LOGIN_URL)
+        if not response.content:
+            defer.returnValue(results)
+
+        cookies = response.cookies
+        token = cookies['csrftoken']
+        data = {'csrfmiddlewaretoken': token,
+                'username': username,
+                'password': password}
+        response = yield post_request(LASTFM_LOGIN_URL, data=data, headers={'Referer': LASTFM_LOGIN_URL}, cookies=cookies)
+
+        cookies['sessionid'] = response.cookies['sessionid']
+        data = {'csrfmiddlewaretoken': token,
+                'preferred_affiliate': 'youtube'}
+        response = yield post_request(LASTFM_SETTINGS_URL, data=data, headers={'Referer': LASTFM_SETTINGS_URL}, cookies=cookies)
+        if not response.content:
+            defer.returnValue(results)
+
+        encoded_data = urllib.quote(self.data.encode('utf-8'))
+        response = yield get_request(LASTFM_TRACKS_URL.format(artist=encoded_data), cookies=cookies)
+        if not response.content:
+            defer.returnValue(results)
+
+        try:
+            tree = lxml.html.fromstring(response.content)
+        except:
+            tree = None
+
+        results = []
+
+        if tree is not None:
+            # Find youtube ids
+            youtube_sel = CSSSelector('a[data-youtube-id]')
+            for youtube_video in youtube_sel(tree):
+                artist_name = youtube_video.get('data-artist-name')
+                track_name = youtube_video.get('data-track-name')
+                youtube_id = youtube_video.get('data-youtube-id')
+
+                results.append({'title': artist_name + ' - ' + track_name,
+                                'link': 'youtube:' + youtube_id,
+                                'ts': -1,
+                                'image': 'https://i.ytimg.com/vi/' + youtube_id + '/default.jpg',
+                                'musicinfo': {'artist_name': artist_name,
+                                              'track_name': track_name}})
+
+        self.last_check = int(time.time())
+
+        defer.returnValue(results)
+
+    def __str__(self):
+        return "LastfmSource_%s_%s" % (self.type, self.data)

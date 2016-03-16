@@ -58,7 +58,7 @@ class MetadataChecker(object):
         self.checking = False
 
     @inlineCallbacks
-    def check_track(self, track):
+    def check_track(self, track, add_sources=False):
         last_check = int(time.time()) - track.get('musicinfo', {}).get('last_check', 0)
 
         if last_check >= METADATA_CHECK_INTERVAL:
@@ -73,6 +73,12 @@ class MetadataChecker(object):
             self.database.set_track_musicinfo(track, musicinfo)
             if got_musicinfo:
                 self.logger.info('Updated metadata for track %s', track['_id'])
+
+                if add_sources:
+                    for artist in musicinfo.get('similar_artists', []):
+                        source_id = self.database.add_source({"data": artist, "type": "artist", "site": "lastfm"})
+                        if source_id is not None:
+                            self.logger.info('Added Lastfm similar artist source for: %s', artist)
 
     @inlineCallbacks
     def check_loop(self):
@@ -93,7 +99,7 @@ class LastFm(object):
     def call_api(self, **kwargs):
         for k, v in kwargs.items():
             if isinstance(v, unicode):
-                kwargs[k] = v.encode('utf-8')
+                kwargs[k] = urllib.quote(v.encode('utf-8'))
         kwargs['api_key'] = self.config.get('sources', 'lastfm_api_key')
 
         response = yield get_request(self.URL.format(**kwargs))

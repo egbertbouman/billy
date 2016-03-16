@@ -147,7 +147,7 @@ class PlaylistsHandler(BaseHandler):
             # Check metadata for the new tracks in the identity playlist
             if  playlists_new[playlist_name].get('type', 'user') == 'identity':
                 track = self.database.get_track(track_id)
-                self.database.metadata_checker.check_track(track)
+                self.database.metadata_checker.check_track(track, add_sources=True)
                 check_metadata = True
 
         for playlist_name, track_id in tracks_removed:

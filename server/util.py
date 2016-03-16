@@ -18,8 +18,9 @@ from requests.cookies import create_cookie
 
 class Response(object):
 
-    def __init__(self, status_code, cookiejar, content):
+    def __init__(self, status_code, headers, cookiejar, content):
         self.status_code = status_code
+        self.headers = headers
         self.cookiejar = cookiejar
         self.content = content
 
@@ -34,8 +35,9 @@ class Response(object):
 
 class BodyReceiver(Protocol):
 
-    def __init__(self, status_code, cookiejar, finished):
+    def __init__(self, status_code, headers, cookiejar, finished):
         self.status_code = status_code
+        self.headers = headers
         self.cookiejar = cookiejar
         self.finished = finished
         self.data = ''
@@ -44,7 +46,10 @@ class BodyReceiver(Protocol):
         self.data += bytes
 
     def connectionLost(self, reason):
-        self.finished.callback(Response(self.status_code, self.cookiejar, self.data))
+        self.finished.callback(Response(self.status_code,
+                                        self.headers,
+                                        self.cookiejar,
+                                        self.data))
 
 
 def http_request(method, url, params={}, data=None, headers={}, cookies=None, timeout=30, ignore_errors=True):
@@ -52,6 +57,8 @@ def http_request(method, url, params={}, data=None, headers={}, cookies=None, ti
     url = url.encode('utf-8') if isinstance(url, unicode) else url
     for k, v in params.items():
         params[k] = v.encode('utf-8') if isinstance(v, unicode) else v
+    for k, v in headers.items():
+        headers[k] = v.encode('utf-8') if isinstance(v, unicode) else v
 
     # Add any additional params to the url
     url_parts = list(urlparse.urlparse(url))
@@ -83,7 +90,10 @@ def http_request(method, url, params={}, data=None, headers={}, cookies=None, ti
             # Don't download any multimedia files
             raise Exception('reponse contains a multimedia file')
         d = defer.Deferred()
-        response.deliverBody(BodyReceiver(response.code, cookiejar, d))
+        response.deliverBody(BodyReceiver(response.code,
+                                          dict(response.headers.getAllRawHeaders()),
+                                          cookiejar,
+                                          d))
         return d
 
     def handle_error(error):
@@ -93,7 +103,7 @@ def http_request(method, url, params={}, data=None, headers={}, cookies=None, ti
             reason = error.getErrorMessage()
         logger = logging.getLogger(__name__)
         logger.error('Failed to GET %s (reason: %s)', url, reason)
-        return Response(0, cookielib.CookieJar(), '')
+        return Response(0, {}, cookielib.CookieJar(), '')
 
     d.addCallback(handle_response, cookiejar)
     if ignore_errors:

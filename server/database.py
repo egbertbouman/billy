@@ -58,7 +58,7 @@ class Database(object):
     def add_source(self, source):
         # Add to database
         if not list(self.db.sources.find(source).limit(1)):
-            id = self.db.sources.insert(source)
+            return self.db.sources.insert(source)
 
     def get_all_sources(self):
         return list(self.db.sources.find({}))

@@ -224,10 +224,12 @@ app.controller('ResultCtrl', function ($rootScope, $scope, MusicService, ApiServ
     };
 
     $scope.$on('search', function(event, query) {
+        $scope.tabs.search.current_page = 1;
         $scope.query = query;
         search();
     });
     $scope.$on('recommend', function(event, playlist_name) {
+        $scope.tabs.recommendation.current_page = 1;
         $scope.playlist_name = playlist_name;
         recommend();
     });

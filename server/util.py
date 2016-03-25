@@ -123,6 +123,10 @@ def put_request(url, **kwargs):
     return  http_request('PUT', url, **kwargs)
 
 
+def delete_request(url, **kwargs):
+    return  http_request('DELETE', url, **kwargs)
+
+
 # From: http://stackoverflow.com/questions/2437617/limiting-the-size-of-a-python-dictionary
 class LimitedSizeDict(OrderedDict):
   def __init__(self, *args, **kwds):

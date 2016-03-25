@@ -109,11 +109,11 @@
             <div class="tab-pane fade in list-group" id="search" name="Search results">
                 <li ng-repeat="result in tabs.search.results" class="list-group-item shorten" data-track-id="{{ result._id }}" ng-class="(musicservice.track == result && !musicservice.name) ? 'playlist-current' : ''">
                     <div class="pull-right m-l btn-group">
-                        <a><span class="glyphicon glyphicon-info-sign" popover-append-to-body="true" popover-trigger="outsideClick" popover-placement="bottom" uib-popover-template="'app/views/musicinfo_popover.html'" popover-title="Music info"></span></a>
-                        <a ng-click="load_and_play(result)" class="m-r-sm"><span class="glyphicon glyphicon-play-circle"></span></a>
-                        <a ng-click="add(result)" class="m-r-sm"><span class="glyphicon glyphicon-remove-circle rotate-45"></span></a>
+                        <a href=""><span class="glyphicon glyphicon-info-sign" popover-append-to-body="true" popover-trigger="outsideClick" popover-placement="bottom" uib-popover-template="'app/views/musicinfo_popover.html'" popover-title="Music info"></span></a>
+                        <a href="" ng-click="load_and_play(result)" class="m-r-sm"><span class="glyphicon glyphicon-play-circle"></span></a>
+                        <a href="" ng-click="add(result)" class="m-r-sm"><span class="glyphicon glyphicon-remove-circle rotate-45"></span></a>
                     </div>
-                    <a ng-click="load_and_play(result)" class="img-thumbnail cover-art"><span class="rollover"></span><img alt="" ng-src="{{ result.image }}" onerror="this.src = 'assets/img/blank.png';"></a>
+                    <a href="" ng-click="load_and_play(result)" class="img-thumbnail cover-art"><span class="rollover"></span><img alt="" ng-src="{{ result.image }}" onerror="this.src = 'assets/img/blank.png';"></a>
                     {{ result.title }}
                 </li>
                 <div ng-show="tabs.search.results.length" class="text-center">
@@ -125,11 +125,11 @@
             <div class="tab-pane fade in active list-group" id="recommend" name="Recommendations">
                 <li ng-repeat="result in tabs.recommendation.results" class="list-group-item shorten" data-track-id="{{ result._id }}" ng-class="(musicservice.track == result) ? 'playlist-current' : ''">
                     <div class="pull-right m-l btn-group">
-                        <a><span class="glyphicon glyphicon-info-sign" popover-append-to-body="true" popover-trigger="outsideClick" popover-placement="bottom" uib-popover-template="'app/views/musicinfo_popover.html'" popover-title="Music info"></span></a>
-                        <a ng-click="load_and_play(result)" class="m-r-sm"><span class="glyphicon glyphicon-play-circle"></span></a>
-                        <a ng-click="add(result)" class="m-r-sm"><span class="glyphicon glyphicon-remove-circle rotate-45"></span></a>
+                        <a href=""><span class="glyphicon glyphicon-info-sign" popover-append-to-body="true" popover-trigger="outsideClick" popover-placement="bottom" uib-popover-template="'app/views/musicinfo_popover.html'" popover-title="Music info"></span></a>
+                        <a href="" ng-click="load_and_play(result)" class="m-r-sm"><span class="glyphicon glyphicon-play-circle"></span></a>
+                        <a href="" ng-click="add(result)" class="m-r-sm"><span class="glyphicon glyphicon-remove-circle rotate-45"></span></a>
                     </div>
-                    <a ng-click="load_and_play(result)" class="img-thumbnail cover-art"><span class="rollover"></span><img alt="" ng-src="{{ result.image }}" onerror="this.src = 'assets/img/blank.png';"></a>
+                    <a href="" ng-click="load_and_play(result)" class="img-thumbnail cover-art"><span class="rollover"></span><img alt="" ng-src="{{ result.image }}" onerror="this.src = 'assets/img/blank.png';"></a>
                     {{ result.title }}
                 </li>
                 <div ng-show="tabs.recommendation.results.length" class="text-center">
@@ -157,13 +157,13 @@
                   </div>
                   <li ng-repeat="result in playlist.tracks" class="list-group-item shorten" data-track-id="{{ result._id }}" ng-class="(playlist_name == musicservice.name && $index == musicservice.index) ? 'playlist-current' : ''">
                       <div class="pull-right m-l btn-group">
-                          <a ng-click="move_up(playlist_name, $index)" class="m-r-sm"><span class="glyphicon glyphicon-circle-arrow-up"></span></a>
-                          <a ng-click="move_down(playlist_name, $index)" class="m-r-sm"><span class="glyphicon glyphicon-circle-arrow-down"></span></a>
-                          <a><span class="glyphicon glyphicon-info-sign" popover-append-to-body="true" popover-trigger="outsideClick" popover-placement="bottom-right" uib-popover-template="'app/views/musicinfo_popover.html'" popover-title="Music info"></span></a>
-                          <a ng-click="load_and_play(playlist_name, $index)" class="m-r-sm"><span class="glyphicon glyphicon-play-circle"></span></a>
-                          <a ng-click="remove(playlist_name, $index)" class="m-r-sm"><span class="glyphicon glyphicon-remove-circle"></span></a>
+                          <a href="" ng-click="move_up(playlist_name, $index)" class="m-r-sm"><span class="glyphicon glyphicon-circle-arrow-up"></span></a>
+                          <a href="" ng-click="move_down(playlist_name, $index)" class="m-r-sm"><span class="glyphicon glyphicon-circle-arrow-down"></span></a>
+                          <a href="" ><span class="glyphicon glyphicon-info-sign" popover-append-to-body="true" popover-trigger="outsideClick" popover-placement="bottom-right" uib-popover-template="'app/views/musicinfo_popover.html'" popover-title="Music info"></span></a>
+                          <a href="" ng-click="load_and_play(playlist_name, $index)" class="m-r-sm"><span class="glyphicon glyphicon-play-circle"></span></a>
+                          <a href="" ng-click="remove(playlist_name, $index)" class="m-r-sm"><span class="glyphicon glyphicon-remove-circle"></span></a>
                       </div>
-                      <a ng-click="load_and_play(playlist_name, $index)" class="img-thumbnail cover-art"><span class="rollover"></span><img alt="" ng-src="{{ result.image }}" onerror="this.src = 'assets/img/blank.png';"></a>
+                      <a href="" ng-click="load_and_play(playlist_name, $index)" class="img-thumbnail cover-art"><span class="rollover"></span><img alt="" ng-src="{{ result.image }}" onerror="this.src = 'assets/img/blank.png';"></a>
                       {{ result.title }}
                   </li>
               </div>

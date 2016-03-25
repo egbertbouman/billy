@@ -10,17 +10,11 @@ app.controller('PlaylistCtrl', function ($scope, $rootScope, $timeout, $cookies,
             if ($.isEmptyObject(data))
                 $scope.playlist_modal();
         }, function error(response) {
-            if (response.status == 404 && ApiService.token !== undefined) {
-                document.body.innerHTML = '';
-                HelperService.alert('Failed to find Billy session');
-            }
-            else {
-                // Create a new Billy session
-                ApiService.new_session().then(function (data) {
-                    MusicService.set_playlists($scope.playlists = {});
-                    $scope.playlist_modal();
-                });
-            }
+            // Create a new Billy session
+            ApiService.new_session().then(function (data) {
+                MusicService.set_playlists($scope.playlists = {});
+                $scope.playlist_modal();
+            });
         });
     };
     var save_playlists = function() {

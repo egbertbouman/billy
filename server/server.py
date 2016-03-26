@@ -134,7 +134,7 @@ class PlaylistsHandler(BaseHandler):
         tracks_new = set((p['name'], track_id) for p in playlists_new.values() for track_id in p['tracks'])
 
         playlists_old = session['playlists']
-        tracks_old = set((p['name'], t['_id']) for p in playlists_old.values() for t in p['tracks'])
+        tracks_old = set((p['name'], t['_id']) for p in playlists_old.values() for t in p['tracks'] if t)
 
         tracks_added = tracks_new - tracks_old
         tracks_removed = tracks_old - tracks_new

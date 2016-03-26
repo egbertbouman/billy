@@ -10,11 +10,17 @@ app.controller('PlaylistCtrl', function ($scope, $rootScope, $timeout, $cookies,
             if ($.isEmptyObject(data))
                 $scope.playlist_modal();
         }, function error(response) {
-            // Create a new Billy session
-            ApiService.new_session().then(function (data) {
-                MusicService.set_playlists($scope.playlists = {});
-                $scope.playlist_modal();
-            });
+            if (response.status == 404 && HelperService.getParameterByName('token')) {
+                document.body.innerHTML = '';
+                HelperService.alert('Failed to find Billy session');
+            }
+            else {
+                // Create a new Billy session
+                ApiService.new_session().then(function (data) {
+                    MusicService.set_playlists($scope.playlists = {});
+                    $scope.playlist_modal();
+                });
+            }
         });
     };
     var save_playlists = function() {
@@ -30,7 +36,7 @@ app.controller('PlaylistCtrl', function ($scope, $rootScope, $timeout, $cookies,
         });
 
         // Store playlists in remote database
-        ApiService.post_playlists(playlists);
+        return ApiService.post_playlists(playlists);
     };
     $scope.export_playlists = function() {
         var blob = new Blob([JSON.stringify($scope.playlists)], { type:"application/json;charset=utf-8;" });
@@ -74,12 +80,15 @@ app.controller('PlaylistCtrl', function ($scope, $rootScope, $timeout, $cookies,
         modalInstance.result.then(function success(result) {
             result.tracks = [];
             MusicService.add_playlist(result.name, result);
+            save_playlists();
         }, function error() {
         });
     };
     $scope.delete_playlist = function(playlist_name) {
         if (!MusicService.delete_playlist(playlist_name))
             HelperService.alert('You should have at least one playlist. Please create a new one before deleting this one.');
+        else
+            save_playlists();
     };
     $scope.next = function() {
         MusicService.next();
@@ -89,20 +98,26 @@ app.controller('PlaylistCtrl', function ($scope, $rootScope, $timeout, $cookies,
     };
     $scope.move_up = function(playlist_name, index) {
         MusicService.reposition(playlist_name, index, 1);
+        save_playlists();
     };
     $scope.move_down = function(playlist_name, index) {
         MusicService.reposition(playlist_name, index, -1);
+        save_playlists();
     };
     $scope.load_and_play = function(playlist_name, index) {
         MusicService.load_and_play({name: playlist_name, index: index});
     };
     $scope.add = function(track) {
         MusicService.add(current_playlist, track);
-        $timeout(function() { $rootScope.$broadcast('recommend', current_playlist); }, 5000);
+        save_playlists().then(function () {
+            $rootScope.$broadcast('recommend', current_playlist);
+        });
     };
     $scope.remove = function(playlist_name, index) {
         MusicService.remove(playlist_name, index);
-        $timeout(function() { $rootScope.$broadcast('recommend', playlist_name); }, 5000);
+        save_playlists().then(function () {
+            $rootScope.$broadcast('recommend', playlist_name);
+        });
     };
 
     var current_playlist;
@@ -114,10 +129,6 @@ app.controller('PlaylistCtrl', function ($scope, $rootScope, $timeout, $cookies,
                 current_playlist = playlist_name;
             }
         });
-    }, true);
-    $scope.$watch('playlists', function(new_value, old_value) {
-        if (old_value !== undefined)
-            save_playlists();
     }, true);
 
     $scope.$on('loadstart', function(event) {

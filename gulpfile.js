@@ -12,7 +12,9 @@ var gulp = require('gulp'),
     gulpif = require('gulp-if'),
     concat = require('gulp-concat'),
     lazypipe = require('lazypipe'),
-    revReplace = require('gulp-rev-replace');
+    revReplace = require('gulp-rev-replace'),
+    ghPages = require('gulp-gh-pages'),
+    argv = require('yargs').argv;
 
 var jsTask = lazypipe()
     .pipe(addsrc.append, 'tmp/templates.js')
@@ -63,6 +65,11 @@ gulp.task('build-fonts', ['clean'], function () {
 
 gulp.task('remove-tmp', ['build-js-css-html'], function () {
     return del(['tmp']);
+});
+
+gulp.task('deploy', ['default'], function() {
+  return gulp.src('./dist/**/*')
+    .pipe(ghPages({remoteUrl: argv.remoteurl}));
 });
 
 gulp.task('default', ['clean', 'jshint', 'build-tmpls', 'build-js-css-html', 'remove-tmp', 'build-img', 'build-fonts']);

@@ -22,6 +22,7 @@ YOUTUBE_CHANNEL_URL = u'https://www.googleapis.com/youtube/v3/channels?part=cont
 YOUTUBE_PLAYLISTITEMS_URL = u'https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId={id}&page_token&pageToken={token}&maxResults=50&key={api_key}'
 YOUTUBE_PLAYLIST_URL = u'https://www.googleapis.com/youtube/v3/playlistItems?key={api_key}&playlistId={id}&part=snippet&pageToken={token}&maxResults=50&order=date'
 SOUNDCLOUD_RESOLVE_URL = u'https://api.soundcloud.com/resolve.json?url={url}&client_id={api_key}'
+SOUNDCLOUD_FAVORITES_URL = 'http://api.soundcloud.com/users/{user_id}/favorites'
 LASTFM_LOGIN_URL = u'https://secure.last.fm/login'
 LASTFM_TRACKS_URL = u'http://www.last.fm/music/{artist}/+tracks'
 LASTFM_SETTINGS_URL = u'http://www.last.fm/settings/website'
@@ -94,6 +95,8 @@ class SourceChecker(object):
             return YoutubeSource(source_dict['type'], source_dict['data'], self.config, last_check)
         elif source_dict['site'] == 'lastfm':
             return LastfmSource(source_dict['type'], source_dict['data'], self.config, last_check)
+        elif source_dict['site'] == 'soundcloud':
+            return SoundcloudSource(source_dict['type'], source_dict['data'], self.config, last_check)
         elif source_dict['type'] == 'rss':
             return RSSSource(source_dict['data'], self.config, last_check)
 
@@ -402,3 +405,34 @@ class LastfmSource(object):
 
     def __str__(self):
         return "LastfmSource_%s_%s" % (self.type, self.data)
+
+
+class SoundcloudSource(object):
+
+    def __init__(self, type, data, config, last_check=0):
+        self.logger = logging.getLogger(__name__)
+
+        self.type = type
+        self.data = data
+        self.config = config
+        self.last_check = last_check
+
+    @inlineCallbacks
+    def fetch(self, since=0):
+        results = []
+
+        api_key = self.config.get('sources', 'soundcloud_api_key')
+
+        results = {}
+        response_dict = yield self.call_api(self.FAVORITES_URL.format(user_id=data))
+        if response_dict:
+            for track in response_dict:
+                results.append({'title': track['title'],
+                                'link': 'soundcloud:' + track['id'],
+                                'ts': datetime_to_ts(parse(track['created_at'])),
+                                'image': track['artwork_url']})
+
+        defer.returnValue(results)
+
+    def __str__(self):
+        return "SoundcloudSource_%s_%s" % (self.type, self.data)

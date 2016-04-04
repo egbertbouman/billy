@@ -7,6 +7,13 @@
         <a ng-show="result.musicinfo.similar_artists.length !== similar_artists.length" ng-click="limit = undefined" class="text-nowrap" href="">show more...</a>
       </td>
     </tr>
-    <tr ng-show="!result.musicinfo.similar_artists"><td>No data</td></tr>
+    <tr ng-if="result.musicinfo.favoriters">
+      <td>Favoriters</td>
+      <td>
+        <span class="label label-success" ng-repeat="favoriter in result.musicinfo.favoriters | limitTo: limit as favoriters">{{ favoriter[1] }}</span>
+        <a ng-show="result.musicinfo.favoriters.length !== favoriters.length" ng-click="limit = undefined" class="text-nowrap" href="">show more...</a>
+      </td>
+    </tr>
+    <tr ng-show="!result.musicinfo.similar_artists && !result.musicinfo.favoriters"><td>No data</td></tr>
   </table>
 </div>

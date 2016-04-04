@@ -16,7 +16,9 @@ class MetadataChecker(object):
         self.database = database
         self.config = config
         self.checking = False
+
         self.lastfm = LastFm(config)
+        self.soundcloud = Soundcloud(config)
 
         self.check_loop()
 
@@ -62,11 +64,21 @@ class MetadataChecker(object):
         last_check = int(time.time()) - track.get('musicinfo', {}).get('last_check', 0)
 
         if last_check >= METADATA_CHECK_INTERVAL:
-            musicinfo = yield self.lastfm.fetch(track)
-            got_musicinfo = bool(musicinfo)
+            musicinfo = {}
+
+            # Get metadata from Last.fm
+            lastfm_data = yield self.lastfm.fetch(track)
+            got_musicinfo = bool(lastfm_data)
+            if lastfm_data:
+                musicinfo.update(lastfm_data)
+
+            # Get metadata from Soundcloud
+            soundcloud_data = yield self.soundcloud.fetch(track)
+            got_musicinfo |= bool(soundcloud_data)
+            if soundcloud_data:
+                musicinfo.update(soundcloud_data)
 
             # Even if we didn't get any metadata, we still need to remember the last_check time
-            musicinfo = musicinfo or {}
             musicinfo['last_check'] = int(time.time())
             track['musicinfo'] = musicinfo
 
@@ -79,6 +91,11 @@ class MetadataChecker(object):
                         source_id = self.database.add_source({"data": artist, "type": "artist", "site": "lastfm"})
                         if source_id is not None:
                             self.logger.info('Added Lastfm similar artist source for: %s', artist)
+
+                    for user in musicinfo.get('favoriters', []):
+                        source_id = self.database.add_source({"data": user[2], "type": "favorites", "site": "soundcloud"})
+                        if source_id is not None:
+                            self.logger.info('Added Soundcloud favorites source for: %s', user)
 
     @inlineCallbacks
     def check_loop(self):
@@ -147,7 +164,9 @@ class LastFm(object):
             if 'track' not in response_dict:
                 self.logger.info('Could not update metadata for track %s (reason: %s)', track['_id'], response_dict.get('message', 'unknown'))
             elif musicinfo and 'artist_name' in musicinfo:
+                musicinfo['playcount'] = musicinfo.get('playcount', {})
                 musicinfo['playcount'][now] = response_dict['track']['playcount']
+                musicinfo['listeners'] = musicinfo.get('listeners', {})
                 musicinfo['listeners'][now] = response_dict['track']['listeners']
             else:
                 musicinfo.update({'artist_name': artist_name,
@@ -161,3 +180,54 @@ class LastFm(object):
                     musicinfo['similar_artists'] = similar_artists
 
             defer.returnValue(musicinfo)
+
+
+class Soundcloud(object):
+
+    SEARCH_URL = 'http://api.soundcloud.com/tracks.json?limit=50'
+    FAVORITERS_URL = 'http://api.soundcloud.com/tracks/{track_id}/favoriters'
+
+    def __init__(self, config):
+        self.logger = logging.getLogger(__name__)
+        self.config = config
+
+    @inlineCallbacks
+    def call_api(self, url, **kwargs):
+        for k, v in kwargs.items():
+            if isinstance(v, unicode):
+                kwargs[k] = urllib.quote(v.encode('utf-8'))
+        kwargs['client_id'] = self.config.get('sources', 'soundcloud_api_key')
+
+        response = yield get_request(url, params=kwargs)
+        try:
+            response_dict = response.json
+        except ValueError, e:
+            response_dict = {}
+        defer.returnValue(response_dict)
+
+    @inlineCallbacks
+    def fetch(self, track):
+        # We should already have discovered artist_name, track_name (done by LastFm)
+        musicinfo = track.get('musicinfo', {})
+        if 'artist_name' not in musicinfo or 'track_name' not in musicinfo:
+            defer.returnValue(None)
+
+        # Find the track on Soundcloud
+        response_dict = yield self.call_api(self.SEARCH_URL, q=musicinfo['artist_name'] + ' ' + musicinfo['track_name'])
+        if not response_dict:
+            defer.returnValue(None)
+
+        # Find the favouriters for this track
+        response_dict = yield self.call_api(self.FAVORITERS_URL.format(track_id=response_dict[0]['id']))
+        if not response_dict:
+            defer.returnValue(None)
+
+        # Only consider the users with the most followers
+        users = []
+        for user_dict in response_dict:
+            users.append((user_dict['followers_count'], user_dict['username'], user_dict['id']))
+        users.sort(reverse=True)
+        users = users[:5]
+
+        musicinfo = {'favoriters': users}
+        defer.returnValue(musicinfo)

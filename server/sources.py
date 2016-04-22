@@ -22,7 +22,7 @@ YOUTUBE_CHANNEL_URL = u'https://www.googleapis.com/youtube/v3/channels?part=cont
 YOUTUBE_PLAYLISTITEMS_URL = u'https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId={id}&page_token&pageToken={token}&maxResults=50&key={api_key}'
 YOUTUBE_PLAYLIST_URL = u'https://www.googleapis.com/youtube/v3/playlistItems?key={api_key}&playlistId={id}&part=snippet&pageToken={token}&maxResults=50&order=date'
 SOUNDCLOUD_RESOLVE_URL = u'https://api.soundcloud.com/resolve.json?url={url}&client_id={api_key}'
-SOUNDCLOUD_FAVORITES_URL = 'http://api.soundcloud.com/users/{user_id}/favorites'
+SOUNDCLOUD_FAVORITES_URL = 'http://api.soundcloud.com/users/{user_id}/favorites?client_id={api_key}'
 LASTFM_LOGIN_URL = u'https://secure.last.fm/login'
 LASTFM_TRACKS_URL = u'http://www.last.fm/music/{artist}/+tracks'
 LASTFM_SETTINGS_URL = u'http://www.last.fm/settings/website'
@@ -424,7 +424,9 @@ class SoundcloudSource(object):
         api_key = self.config.get('sources', 'soundcloud_api_key')
 
         results = {}
-        response_dict = yield self.call_api(self.FAVORITES_URL.format(user_id=data))
+
+        response = yield get_request(SOUNDCLOUD_FAVORITES_URL.format(user_id=data, api_key=api_key))
+        response_dict = response.json
         if response_dict:
             for track in response_dict:
                 results.append({'title': track['title'],

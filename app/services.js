@@ -436,7 +436,7 @@ app.service('ApiService', function($http, $cookies, HelperService) {
         return this.do_post(HelperService.formatString(this.api_playlists, this.token, ''), JSON.stringify(playlists), ignore_errors);
     };
     this.get_tracks = function(query, offset, ignore_errors) {
-        return this.do_get(HelperService.formatString(this.api_tracks, query, '', offset), ignore_errors);
+        return this.do_get(HelperService.formatString(this.api_tracks, encodeURIComponent(query), '', offset), ignore_errors);
     };
     this.get_recommendation = function(name, offset, ignore_errors) {
         return this.do_get(HelperService.formatString(this.api_recommend, this.token, name, offset), ignore_errors);

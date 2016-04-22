@@ -116,18 +116,18 @@ class Search(object):
             song_set_ids = [song['_id'] for song in song_set]
 
             sources = set()
-            artists = set()
-            similar_artists = set()
+            artists = {}
             for track in playlist['tracks']:
                 for source in track['sources']:
                     sources.add(source)
                 if 'artist_name' in track.get('musicinfo', {}):
-                    artists.add(track['musicinfo']['artist_name'])
-                similar_artists |= set(track.get('musicinfo', {}).get('similar_artists', []))
+                    artist_name = track['musicinfo']['artist_name']
+                    artists[artist_name] = artists.get(artist_name, 0) + 1
+                for artist_name in track.get('musicinfo', {}).get('similar_artists', []):
+                    artists[artist_name] = artists.get(artist_name, 0) + 1
 
-            all_artists = list(artists) + list(similar_artists)
-            random.shuffle(all_artists)
-            query = ' '.join(map(lambda x: '\"' + x + '\"', all_artists[:30]))
+            # Build the query using the top-100 most frequently seen artists
+            query = ' '.join(['"%s"^%d' % t for t in sorted(artists.items(), key=lambda x: x[1])[:100]])
             search_results = yield self.search(query, sources=sources)
 
             filtered_search_results = []

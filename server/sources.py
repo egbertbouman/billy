@@ -149,7 +149,10 @@ class RSSSource(object):
         feed = feedparser.parse(response.content)
 
         for entry in feed.get('entries', []):
-            epoch_time = int(time.mktime(entry['published_parsed'])) if 'published_parsed' in entry else -1
+            if entry.get('published_parsed', None) is not None:
+                epoch_time = int(time.mktime(entry['published_parsed']))
+            else:
+                epoch_time = -1
             if epoch_time < since:
                 continue
 
@@ -423,14 +426,16 @@ class SoundcloudSource(object):
 
         api_key = self.config.get('sources', 'soundcloud_api_key')
 
-        results = {}
+        response = yield get_request(SOUNDCLOUD_FAVORITES_URL.format(user_id=self.data, api_key=api_key))
+        try:
+            response_dict = response.json
+        except ValueError:
+            response_dict = None
 
-        response = yield get_request(SOUNDCLOUD_FAVORITES_URL.format(user_id=data, api_key=api_key))
-        response_dict = response.json
         if response_dict:
             for track in response_dict:
                 results.append({'title': track['title'],
-                                'link': 'soundcloud:' + track['id'],
+                                'link': 'soundcloud:%s' % track['id'],
                                 'ts': datetime_to_ts(parse(track['created_at'])),
                                 'image': track['artwork_url']})
 

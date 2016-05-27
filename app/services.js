@@ -7,7 +7,7 @@ app.factory('jPlayerFactory', function($rootScope) {
             wmode: 'window',
             cssSelectorAncestor: css_selector_ui,
             ready: function () {
-                $rootScope.$broadcast('ready');
+                $rootScope.$broadcast('_ready');
             },
             play: function () {
                 $rootScope.$broadcast('playing');
@@ -93,7 +93,7 @@ app.factory('YoutubePlayerFactory', function($rootScope) {
                     },
                 events: {
                     'onReady': function (data) {
-                        $rootScope.$broadcast('ready', data);
+                        $rootScope.$broadcast('_ready', data);
                     },
                     'onStateChange': function (state) {
                         switch(state.data) {
@@ -185,9 +185,7 @@ app.factory('SoundCloudPlayerFactory', function($rootScope) {
             self.player = SC.Widget(css_selector);
 
             self.player.bind(SC.Widget.Events.READY, function() {
-                self.players_ready += 1;
-                if (self.players_ready === self.players_total)
-                    $rootScope.$broadcast('ready');
+                $rootScope.$broadcast('_ready');
             });
             self.player.bind(SC.Widget.Events.PLAY, function() {
                 $rootScope.$broadcast('playing');
@@ -253,6 +251,9 @@ app.service('MusicService', function($rootScope, jPlayerFactory, YoutubePlayerFa
     jPlayerFactory.create('#player-core', '#player-ui');
     YoutubePlayerFactory.create('yt_player');
     SoundCloudPlayerFactory.create('sc_player');
+
+    this.players_ready = 0;
+    this.players_total = 3;
 
     this.playing = false;
     this.players = {
@@ -379,6 +380,12 @@ app.service('MusicService', function($rootScope, jPlayerFactory, YoutubePlayerFa
     });
     $rootScope.$on('ended', function(event) {
         self.playing = false;
+    });
+    $rootScope.$on('_ready', function(event) {
+        self.players_ready += 1
+        if (self.players_ready === self.players_total) {
+            $rootScope.$broadcast('ready');
+        }
     });
 });
 

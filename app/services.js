@@ -69,7 +69,7 @@ app.factory('YoutubePlayerFactory', function($rootScope) {
         var self = this;
 
         // Load Youtube API
-        $.getScript('http://www.youtube.com/iframe_api');
+        $.getScript('//www.youtube.com/iframe_api');
 
         $('<div id="' + css_selector + '"></div>').appendTo('body');
 
@@ -169,8 +169,8 @@ app.factory('SoundCloudPlayerFactory', function($rootScope) {
 
         // Load SoundCloud API
         $.when(
-            $.getScript('http://connect.soundcloud.com/sdk.js'),
-            $.getScript('https://w.soundcloud.com/player/api.js'),
+            $.getScript('//connect.soundcloud.com/sdk.js'),
+            $.getScript('//w.soundcloud.com/player/api.js'),
             $.Deferred(function(deferred) {
                 $(deferred.resolve);
             })
@@ -180,7 +180,7 @@ app.factory('SoundCloudPlayerFactory', function($rootScope) {
                 client_id: "ac0c94880338e855de3743d143368221"
             });
 
-            $('<iframe id="' + css_selector + '" src="https://w.soundcloud.com/player/?url=https://api.soundcloud.com/tracks/39804767&show_artwork=false&liking=false&sharing=false&auto_play=false" scrolling="no" frameborder="no"></iframe>').appendTo('body');
+            $('<iframe id="' + css_selector + '" src="//w.soundcloud.com/player/?url=https://api.soundcloud.com/tracks/39804767&show_artwork=false&liking=false&sharing=false&auto_play=false" scrolling="no" frameborder="no"></iframe>').appendTo('body');
 
             self.player = SC.Widget(css_selector);
 
@@ -212,7 +212,7 @@ app.factory('SoundCloudPlayerFactory', function($rootScope) {
     player.load_and_play = function(track) {
         this.clear();
         var self = this;
-        this.player.load('http://api.soundcloud.com/tracks/' + track.link.substring(11), { callback: function () { self.player.play(); }});
+        this.player.load('//api.soundcloud.com/tracks/' + track.link.substring(11), { callback: function () { self.player.play(); }});
         this.track = track;
     };
     player.play = function() {
@@ -392,7 +392,7 @@ app.service('MusicService', function($rootScope, jPlayerFactory, YoutubePlayerFa
 
 app.service('ApiService', function($http, $cookies, HelperService) {
 
-    this.api_base = 'http://musesync.ewi.tudelft.nl:8000/api';
+    this.api_base = '//musesync.ewi.tudelft.nl:8000/api';
     this.api_session = this.api_base + '/session';
     this.api_playlists = this.api_base + '/playlists?token={0}&search={1}';
     this.api_tracks = this.api_base + '/tracks?query={0}&id={1}&offset={2}';

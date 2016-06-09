@@ -11,7 +11,7 @@ import logging.config
 from twisted.web import server
 from twisted.web.server import Site
 from twisted.web.resource import Resource
-from twisted.internet import defer, reactor
+from twisted.internet import defer, reactor, ssl
 from twisted.internet.defer import inlineCallbacks
 from twisted.web.static import File
 
@@ -299,6 +299,7 @@ def main(argv):
         parser.add_argument('-u', '--users', help='JSON formatted admin users to be imported into the database', required=False)
         parser.add_argument('-d', '--dir', help='Directory with static content (served from http://server/billy)', required=False)
         parser.add_argument('-n', '--dbname', help='Name of the MongoDB database (default: billy)', required=False)
+        parser.add_argument('-l', '--ssl', help='SSL key/certificate files (e.g. --ssl privkey.pem,cert.pem)', required=False)
         parser.add_help = True
         args = parser.parse_args(sys.argv[1:])
 
@@ -360,7 +361,14 @@ def main(argv):
     root.putChild('api', APIResource(config, database, search))
 
     factory = Site(root)
-    reactor.listenTCP(int(args.port), factory)
+
+    if args.ssl:
+        privkey_fn, cert_fn = args.ssl.split(',')
+        context_factory = ssl.DefaultOpenSSLContextFactory(privkey_fn, cert_fn)
+        reactor.listenSSL(int(args.port), factory, context_factory)
+    else:
+        reactor.listenTCP(int(args.port), factory)
+
     reactor.run()
 
 

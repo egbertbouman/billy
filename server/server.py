@@ -15,6 +15,7 @@ from twisted.internet import defer, reactor, ssl
 from twisted.internet.defer import inlineCallbacks
 from twisted.web.static import File
 
+from radio import *
 from search import Search
 from database import Database
 from pymongo import MongoClient
@@ -300,6 +301,7 @@ def main(argv):
         parser.add_argument('-d', '--dir', help='Directory with static content (served from http://server/billy)', required=False)
         parser.add_argument('-n', '--dbname', help='Name of the MongoDB database (default: billy)', required=False)
         parser.add_argument('-l', '--ssl', help='SSL key/certificate files (e.g. --ssl privkey.pem,cert.pem)', required=False)
+        parser.add_argument('-r', '--radio', help='Create a radio for a specific playlist (e.g. --radio a94a8fe5ccb19ba61c4c0873d391e987982fbbd3,playlistname)', required=False)
         parser.add_help = True
         args = parser.parse_args(sys.argv[1:])
 
@@ -358,16 +360,26 @@ def main(argv):
             raise IOError('directory does not exist')
         root.putChild('billy', File(html_dir))
 
+    # Add HTTP API
     root.putChild('api', APIResource(config, database, search))
 
-    factory = Site(root)
+    if args.radio:
+        # Add WS API (only used for radio)
+        token, playlist_name = args.radio.split(',')
+        factory = BillyRadioFactory('ws://127.0.0.1:' + args.port,
+                                    database=database, config=config,
+                                    token=token, playlist_name=playlist_name)
+        factory.protocol = BillyRadioProtocol
+        root.putChild('ws', WebSocketResource(factory))
+
+    site = Site(root)
 
     if args.ssl:
         privkey_fn, cert_fn = args.ssl.split(',')
         context_factory = ssl.DefaultOpenSSLContextFactory(privkey_fn, cert_fn)
-        reactor.listenSSL(int(args.port), factory, context_factory)
+        reactor.listenSSL(int(args.port), site, context_factory)
     else:
-        reactor.listenTCP(int(args.port), factory)
+        reactor.listenTCP(int(args.port), site)
 
     reactor.run()
 

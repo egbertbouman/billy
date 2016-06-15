@@ -171,6 +171,7 @@ class TracksHandler(BaseHandler):
         query = request.args['query'][0] if 'query' in request.args else None
         id = request.args['id'][0] if 'id' in request.args else None
         offset = request.args['offset'][0] if 'offset' in request.args else 0
+        page_size = request.args['pagesize'][0] if 'pagesize' in request.args else 0
 
         if bool(query) == bool(id):
             defer.returnValue(self.error(request, 'please use either the query or the id param', 400))
@@ -185,7 +186,7 @@ class TracksHandler(BaseHandler):
         results.sort(key=lambda x: x.get('stats', {}).get('playlisted', 0), reverse=True)
 
         offset = int(offset)
-        page_size = int(self.config.get('api', 'page_size'))
+        page_size = int(page_size) or int(self.config.get('api', 'page_size'))
 
         if offset > len(results):
             defer.returnValue(self.error(request, 'offset is larger then result-set', 404))
@@ -203,6 +204,7 @@ class RecommendHandler(BaseHandler):
         token = request.args['token'][0] if 'token' in request.args else None
         name = request.args['name'][0] if 'name' in request.args else None
         offset = request.args['offset'][0] if 'offset' in request.args else 0
+        page_size = request.args['pagesize'][0] if 'pagesize' in request.args else 0
 
         session = self.database.get_session(token)
         if session is None:
@@ -215,7 +217,7 @@ class RecommendHandler(BaseHandler):
             if p.get('type', 'user') == 'identity':
                 ident_playlist = p
 
-        page_size = int(self.config.get('api', 'page_size'))
+        page_size = int(page_size) or int(self.config.get('api', 'page_size'))
 
         # Get the recommendations
         results = None
@@ -366,7 +368,8 @@ def main(argv):
     if args.radio:
         # Add WS API (only used for radio)
         token, playlist_name = args.radio.split(',')
-        factory = BillyRadioFactory('ws://127.0.0.1:' + args.port,
+        scheme = 'ws' if not args.ssl else 'wss'
+        factory = BillyRadioFactory(scheme + '://127.0.0.1:' + args.port,
                                     database=database, config=config,
                                     token=token, playlist_name=playlist_name)
         factory.protocol = BillyRadioProtocol

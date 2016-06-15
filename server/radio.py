@@ -57,7 +57,7 @@ class BillyRadioFactory(WebSocketServerFactory):
         self.registrations = {}
         self.suggestions = []
 
-        task.LoopingCall(self.fetch_playlist).start(3600)
+        task.LoopingCall(self.fetch_playlist).start(300)
         task.LoopingCall(self.send_status).start(30)
 
     def join(self, peer, connection):
@@ -139,40 +139,43 @@ class BillyRadioFactory(WebSocketServerFactory):
 
     @inlineCallbacks
     def fetch_playlist(self):
-        self.logger.info('Fetching tracks')
+        self.logger.info('Checking tracks')
         session = self.database.get_session(self.token)
         tracks = session['playlists'][self.playlist_name]['tracks']
 
-        yt_api_key = self.config.get('sources', 'youtube_api_key')
-        sc_api_key = self.config.get('sources', 'soundcloud_api_key')
+        # Have the tracks changed?
+        if [t['link'] for t in self.tracks] != [t['link'] for t in tracks]:
+            # Update stats
+            yt_api_key = self.config.get('sources', 'youtube_api_key')
+            sc_api_key = self.config.get('sources', 'soundcloud_api_key')
 
-        for track in tracks:
-            if track['link'].startswith('youtube:'):
-                url = YOUTUBE_STATS_URL.format(api_key=yt_api_key, id=track['link'][8:])
-                response = yield get_request(url)
-                response_dict = response.json
-                track['duration'] = int(isodate.parse_duration(response_dict['items'][0]['contentDetails']['duration']).total_seconds())
-                track['musicinfo'] = track.get('musicinfo', {})
-                track['musicinfo']['playback_count'] = response_dict['items'][0]['statistics']['viewCount']
-                track['musicinfo']['comment_count'] = response_dict['items'][0]['statistics']['commentCount']
+            for track in tracks:
+                if track['link'].startswith('youtube:'):
+                    url = YOUTUBE_STATS_URL.format(api_key=yt_api_key, id=track['link'][8:])
+                    response = yield get_request(url)
+                    response_dict = response.json
+                    track['duration'] = int(isodate.parse_duration(response_dict['items'][0]['contentDetails']['duration']).total_seconds())
+                    track['musicinfo'] = track.get('musicinfo', {})
+                    track['musicinfo']['playback_count'] = response_dict['items'][0]['statistics']['viewCount']
+                    track['musicinfo']['comment_count'] = response_dict['items'][0]['statistics']['commentCount']
 
-            elif track['link'].startswith('soundcloud:'):
-                url = SOUNDCLOUD_STATS_URL.format(api_key=sc_api_key, id=track['link'][11:])
-                response = yield get_request(url)
-                response_dict = response.json
-                track['duration'] = response_dict['duration'] / 1000
-                track['musicinfo'] = track.get('musicinfo', {})
-                track['musicinfo']['playback_count'] = response_dict['playback_count']
-                track['musicinfo']['comment_count'] = response_dict['comment_count']
-                track['musicinfo']['favorite_count'] = response_dict['favoritings_count']
+                elif track['link'].startswith('soundcloud:'):
+                    url = SOUNDCLOUD_STATS_URL.format(api_key=sc_api_key, id=track['link'][11:])
+                    response = yield get_request(url)
+                    response_dict = response.json
+                    track['duration'] = response_dict['duration'] / 1000
+                    track['musicinfo'] = track.get('musicinfo', {})
+                    track['musicinfo']['playback_count'] = response_dict['playback_count']
+                    track['musicinfo']['comment_count'] = response_dict['comment_count']
+                    track['musicinfo']['favorite_count'] = response_dict['favoritings_count']
 
-        # If we haven't started yet, start now
-        if self.start_time == 0:
+            # Update tracks
+            self.tracks = tracks
             self.start_time = int(time.time())
 
-        # If the tracks have changed, let everyone know
-        if [t['link'] for t in self.tracks] == [t['link'] for t in tracks]:
+            # Notify everyone
             self.send_data()
+            self.send_status()
 
-        self.tracks = tracks
+            self.logger.info('Tracks updated')
 

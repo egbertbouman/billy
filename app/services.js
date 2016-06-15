@@ -395,8 +395,8 @@ app.service('ApiService', function($http, $cookies, HelperService) {
     this.api_base = '//musesync.ewi.tudelft.nl:8000/api';
     this.api_session = this.api_base + '/session';
     this.api_playlists = this.api_base + '/playlists?token={0}&search={1}';
-    this.api_tracks = this.api_base + '/tracks?query={0}&id={1}&offset={2}';
-    this.api_recommend = this.api_base + '/recommend?token={0}&name={1}&offset={2}';
+    this.api_tracks = this.api_base + '/tracks?query={0}&id={1}&offset={2}&pagesize={3}';
+    this.api_recommend = this.api_base + '/recommend?token={0}&name={1}&offset={2}&pagesize={3}';
     this.api_clicklog = this.api_base + '/clicklog?token={0}';
     this.api_waveform = this.api_base + '/waveform?id={0}';
     this.api_info = this.api_base + '/info';
@@ -442,11 +442,13 @@ app.service('ApiService', function($http, $cookies, HelperService) {
     this.post_playlists = function(playlists, ignore_errors) {
         return this.do_post(HelperService.formatString(this.api_playlists, this.token, ''), JSON.stringify(playlists), ignore_errors);
     };
-    this.get_tracks = function(query, offset, ignore_errors) {
-        return this.do_get(HelperService.formatString(this.api_tracks, encodeURIComponent(query), '', offset), ignore_errors);
+    this.get_tracks = function(query, offset, page_size, ignore_errors) {
+        var url = HelperService.formatString(this.api_tracks, encodeURIComponent(query), '', offset, isNaN(page_size) ? '' : page_size);
+        return this.do_get(url, ignore_errors);
     };
-    this.get_recommendation = function(name, offset, ignore_errors) {
-        return this.do_get(HelperService.formatString(this.api_recommend, this.token, name, offset), ignore_errors);
+    this.get_recommendation = function(name, offset, page_size, ignore_errors) {
+        var url = HelperService.formatString(this.api_recommend, this.token, name, offset, isNaN(page_size) ? '' : page_size);
+        return this.do_get(url, ignore_errors);
     };
     this.post_clicklog = function(clicklog, ignore_errors) {
         return this.do_post(HelperService.formatString(this.api_clicklog, this.token, ''), clicklog, ignore_errors);

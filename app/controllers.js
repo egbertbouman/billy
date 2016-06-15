@@ -109,9 +109,7 @@ app.controller('PlaylistCtrl', function ($scope, $rootScope, $timeout, $cookies,
     };
     $scope.add = function(track) {
         MusicService.add(current_playlist, track);
-        save_playlists().then(function () {
-            $rootScope.$broadcast('recommend', current_playlist);
-        });
+        return save_playlists();
     };
     $scope.remove = function(playlist_name, index) {
         MusicService.remove(playlist_name, index);
@@ -141,6 +139,11 @@ app.controller('PlaylistCtrl', function ($scope, $rootScope, $timeout, $cookies,
     });
     $scope.$on('add', function(event, track) {
         $scope.add(track);
+    });
+    $scope.$on('add_and_recommend', function(event, track) {
+        $scope.add(track).then(function () {
+            $rootScope.$broadcast('recommend', current_playlist);
+        });
     });
 
     load_playlists();
@@ -184,39 +187,40 @@ app.controller('PlaylistModalCtrl',  function ($scope, $uibModalInstance) {
 });
 
 
-app.controller('ResultCtrl', function ($rootScope, $scope, MusicService, ApiService) {
+app.controller('ResultCtrl', function ($rootScope, $scope, MusicService, ApiService, HelperService) {
 
+    $scope.force_feedback = HelperService.getParameterByName('force_feedback') === 'true';
     $scope.tabs = {
         search: {
             active: false,
             current_page: 1,
-            page_size: 0,
+            page_size: $scope.force_feedback ? 1 : 50,
             results: []
         },
         recommendation: {
             active: true,
             current_page: 1,
-            page_size: 0,
+            page_size: $scope.force_feedback ? 1 : 50,
             results: []
         }
     };
     $scope.musicservice = MusicService;
 
     function search() {
-        var offset = ($scope.tabs.search.current_page - 1) * $scope.tabs.search.page_size;
-        ApiService.get_tracks($scope.query, offset).then(function(data) {
+        var page_size = $scope.tabs.search.page_size;
+        var offset = ($scope.tabs.search.current_page - 1) * page_size;
+        ApiService.get_tracks($scope.query, offset, page_size).then(function(data) {
             $scope.tabs.search.total_items = data.total;
-            $scope.tabs.search.page_size = data.page_size;
             angular.copy(data.results, $scope.tabs.search.results);
             // Switch to search tab
             $scope.tabs.search.active = true;
         });
     }
     function recommend() {
-        var offset = ($scope.tabs.recommendation.current_page - 1) * $scope.tabs.recommendation.page_size;
-        ApiService.get_recommendation($scope.playlist_name, offset).then(function(data) {
+        var page_size = $scope.tabs.search.page_size;
+        var offset = ($scope.tabs.recommendation.current_page - 1) * page_size;
+        ApiService.get_recommendation($scope.playlist_name, offset, page_size).then(function(data) {
             $scope.tabs.recommendation.total_items = data.total;
-            $scope.tabs.recommendation.page_size = data.page_size;
             angular.copy(data.results, $scope.tabs.recommendation.results);
         });
     }
@@ -224,8 +228,8 @@ app.controller('ResultCtrl', function ($rootScope, $scope, MusicService, ApiServ
     $scope.load_and_play = function(track) {
         MusicService.load_and_play({track: track});
     };
-    $scope.add = function(track) {
-        $rootScope.$broadcast('add', track);
+    $scope.add_and_recommend = function(track) {
+        $rootScope.$broadcast('add_and_recommend', track);
     };
     $scope.page_changed = function() {
         if ($scope.tabs.search.active)
@@ -233,6 +237,16 @@ app.controller('ResultCtrl', function ($rootScope, $scope, MusicService, ApiServ
         else
             recommend();
     };
+    $scope.feedback_handler = function(event) {
+        var track = $scope.tabs.recommendation.results[0];
+        ApiService.post_clicklog({track_id: track._id,
+                                  playlist_name: $scope.playlist_name,
+                                  operation: 'recommendation-feedback:' + event});
+
+        $rootScope.$broadcast('add', track);
+        $scope.tabs.recommendation.current_page += 1;
+        $scope.page_changed();
+    }
 
     $scope.$on('search', function(event, query) {
         $scope.tabs.search.current_page = 1;
@@ -288,6 +302,7 @@ app.controller('PlayerCtrl', function ($scope, $rootScope, $interval, HelperServ
         $scope.playing = MusicService.playing;
     }, 1000);
 });
+
 
 app.controller('HeaderCtrl', function ($rootScope, $scope, HelperService, ApiService) {
 

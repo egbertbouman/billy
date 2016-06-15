@@ -111,7 +111,7 @@
                     <div class="pull-right m-l btn-group">
                         <a href=""><span class="glyphicon glyphicon-info-sign" popover-append-to-body="true" popover-trigger="outsideClick" popover-placement="bottom" uib-popover-template="'app/views/musicinfo_popover.html'" popover-title="Music info"></span></a>
                         <a href="" ng-click="load_and_play(result)" class="m-r-sm"><span class="glyphicon glyphicon-play-circle"></span></a>
-                        <a href="" ng-click="add(result)" class="m-r-sm"><span class="glyphicon glyphicon-remove-circle rotate-45"></span></a>
+                        <a href="" ng-click="add_and_recommend(result)" class="m-r-sm"><span class="glyphicon glyphicon-remove-circle rotate-45"></span></a>
                     </div>
                     <a href="" ng-click="load_and_play(result)" class="img-thumbnail cover-art"><span class="rollover"></span><img alt="" ng-src="{{ result.image }}" onerror="this.src = 'assets/img/blank.png';"></a>
                     {{ result.title }}
@@ -127,12 +127,17 @@
                     <div class="pull-right m-l btn-group">
                         <a href=""><span class="glyphicon glyphicon-info-sign" popover-append-to-body="true" popover-trigger="outsideClick" popover-placement="bottom" uib-popover-template="'app/views/musicinfo_popover.html'" popover-title="Music info"></span></a>
                         <a href="" ng-click="load_and_play(result)" class="m-r-sm"><span class="glyphicon glyphicon-play-circle"></span></a>
-                        <a href="" ng-click="add(result)" class="m-r-sm"><span class="glyphicon glyphicon-remove-circle rotate-45"></span></a>
+                        <a href="" ng-click="add_and_recommend(result)" class="m-r-sm"><span class="glyphicon glyphicon-remove-circle rotate-45"></span></a>
                     </div>
                     <a href="" ng-click="load_and_play(result)" class="img-thumbnail cover-art"><span class="rollover"></span><img alt="" ng-src="{{ result.image }}" onerror="this.src = 'assets/img/blank.png';"></a>
                     {{ result.title }}
                 </li>
-                <div ng-show="tabs.recommendation.results.length" class="text-center">
+                <div ng-show="force_feedback && tabs.recommendation.results.length" class="text-center">
+                    <br><div>Does the recommended track fit well with the content you are looking for?</div>
+                    <button type="button" class="btn btn-danger" ng-click="feedback_handler('no')">No</button>
+                    <button type="button" class="btn btn-success" ng-click="feedback_handler('yes')">Yes</button>
+                </div>
+                <div ng-show="!force_feedback && tabs.recommendation.results.length" class="text-center">
                     <uib-pagination total-items="tabs.recommendation.total_items" ng-model="tabs.recommendation.current_page" ng-change="page_changed()" items-per-page="tabs.recommendation.page_size" previous-text="&lsaquo;" next-text="&rsaquo;" first-text="&laquo;" last-text="&raquo;"></uib-pagination>
                 </div>
             </div>

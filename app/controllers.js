@@ -194,7 +194,7 @@ app.controller('ResultCtrl', function ($rootScope, $scope, MusicService, ApiServ
         search: {
             active: false,
             current_page: 1,
-            page_size: $scope.force_feedback ? 1 : 50,
+            page_size: 50,
             results: []
         },
         recommendation: {
@@ -217,7 +217,7 @@ app.controller('ResultCtrl', function ($rootScope, $scope, MusicService, ApiServ
         });
     }
     function recommend() {
-        var page_size = $scope.tabs.search.page_size;
+        var page_size = $scope.tabs.recommendation.page_size;
         var offset = ($scope.tabs.recommendation.current_page - 1) * page_size;
         ApiService.get_recommendation($scope.playlist_name, offset, page_size).then(function(data) {
             $scope.tabs.recommendation.total_items = data.total;
@@ -242,8 +242,8 @@ app.controller('ResultCtrl', function ($rootScope, $scope, MusicService, ApiServ
         ApiService.post_clicklog({track_id: track._id,
                                   playlist_name: $scope.playlist_name,
                                   operation: 'recommendation-feedback:' + event});
-
-        $rootScope.$broadcast('add', track);
+        if (event == 'yes')
+            $rootScope.$broadcast('add', track);
         $scope.tabs.recommendation.current_page += 1;
         $scope.page_changed();
     }

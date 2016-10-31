@@ -400,6 +400,7 @@ app.service('ApiService', function($http, $cookies, HelperService) {
     this.api_clicklog = this.api_base + '/clicklog?token={0}';
     this.api_waveform = this.api_base + '/waveform?id={0}';
     this.api_info = this.api_base + '/info';
+    this.api_radio = this.api_base + '/radio?token={0}&name={1}';
 
     this.init = function() {
         var port = location.port || (location.protocol === 'https:' ? '443' : '80');
@@ -418,6 +419,11 @@ app.service('ApiService', function($http, $cookies, HelperService) {
     };
     this.do_post = function(url, data, ignore_errors) {
         return $http.post(url, data).then(function successCallback(response) {
+            return response.data;
+        }, ignore_errors ? null : this.show_and_throw_error);
+    };
+    this.do_delete = function(url, ignore_errors) {
+        return $http.delete(url).then(function successCallback(response) {
             return response.data;
         }, ignore_errors ? null : this.show_and_throw_error);
     };
@@ -457,7 +463,15 @@ app.service('ApiService', function($http, $cookies, HelperService) {
     this.get_info = function(ignore_errors) {
         return this.do_get(this.api_info, ignore_errors);
     };
-
+    this.get_radio = function(playlist_name, ignore_errors) {
+        return this.do_get(HelperService.formatString(this.api_radio, this.token, playlist_name), ignore_errors);
+    };
+    this.add_radio = function(playlist_name, ignore_errors) {
+        return this.do_post(HelperService.formatString(this.api_radio, this.token, playlist_name), ignore_errors);
+    };
+    this.delete_radio = function(playlist_name, ignore_errors) {
+        return this.do_delete(HelperService.formatString(this.api_radio, this.token, playlist_name), ignore_errors);
+    };
     this.init();
 });
 

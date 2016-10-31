@@ -5,12 +5,11 @@ import logging
 
 from util import *
 from twisted.internet import task
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, returnValue
 from autobahn.websocket import WebSocketServerProtocol, WebSocketServerFactory
 from autobahn.resource import WebSocketResource
 
 SEND_REGISTRATIONS = 10
-SEND_SUGGESTIONS = 10
 
 YOUTUBE_STATS_URL = 'https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics&id={id}&key={api_key}'
 SOUNDCLOUD_STATS_URL = 'http://api.soundcloud.com/tracks/{id}?client_id={api_key}'
@@ -21,18 +20,14 @@ class BillyRadioProtocol(WebSocketServerProtocol):
     def onConnect(self, request):
         self.factory.join(request.peer, self)
 
-    def onOpen(self):
-        self.factory.send_data(self.peer)
-        self.factory.send_status(self.peer)
-
     def onMessage(self, payload, isBinary):
         if not isBinary:
             json_payload = json.loads(payload)
             type = json_payload.get('type', None)
-            if type == 'register' and 'name' in json_payload:
-                self.factory.register(self.peer, json_payload['name'])
-            elif type == 'suggest' and 'content' in json_payload:
-                self.factory.suggest(self.peer, json_payload['content'])
+            if type == 'register' and 'name' in json_payload and 'radio_id' in json_payload:
+                reactor.callLater(0, self.factory.register, self.peer, json_payload['name'], json_payload['radio_id'])
+            elif type == 'unregister' and 'radio_id' in json_payload:
+                self.factory.unregister(self.peer, json_payload['radio_id'])
 
     def connectionLost(self, reason):
         WebSocketServerProtocol.connectionLost(self, reason)
@@ -44,20 +39,15 @@ class BillyRadioFactory(WebSocketServerFactory):
     def __init__(self, *args, **kwargs):
         self.database = kwargs.pop('database')
         self.config = kwargs.pop('config')
-        self.token = kwargs.pop('token')
-        self.playlist_name = kwargs.pop('playlist_name')
 
         WebSocketServerFactory.__init__(self, *args, **kwargs)
 
         self.logger = logging.getLogger(__name__)
+
         self.connections = {}
+        self.stations = {}
 
-        self.start_time = 0
-        self.tracks = []
-        self.registrations = {}
-        self.suggestions = []
-
-        task.LoopingCall(self.fetch_playlist).start(300)
+        task.LoopingCall(self.fetch_playlist).start(300, now=False)
         task.LoopingCall(self.send_status).start(30)
 
     def join(self, peer, connection):
@@ -68,61 +58,106 @@ class BillyRadioFactory(WebSocketServerFactory):
         if peer in self.connections:
             del self.connections[peer]
             self.logger.debug('Peer %s left', peer)
-        self.unregister(peer)
 
-    def send(self, message, peer=None):
-        if peer is not None:
-            connections = [self.connections[peer]] if peer in self.connections else []
+        for radio_id in self.stations.keys():
+            self.unregister(peer, radio_id)
+
+    def send(self, message, peers=None):
+        if peers is not None:
+            connections = [self.connections[peer] for peer in peers if peer in self.connections]
         else:
             connections = self.connections.values()
 
         for connection in connections:
             connection.sendMessage(json.dumps(message))
 
-    def send_status(self, peer=None):
-        if self.start_time > 0:
-            self.send({'type': 'status',
-                       'position': self.get_play_position()}, peer)
+    def send_status(self, radio_id=None, peers=None):
+        stations = {radio_id: self.stations[radio_id]} if radio_id != None else self.stations
+        for radio_id, station in stations.iteritems():
+            if station.start_time > 0:
+                self.send({'type': 'status',
+                           'radio_id': radio_id,
+                           'position': station.get_play_position()}, peers or station.get_peers())
 
-    def send_data(self, peer=None):
-        registrations = sorted(self.registrations.values(), key=lambda x: x['time'])[:SEND_REGISTRATIONS]
-        suggestions = self.suggestions[:SEND_SUGGESTIONS]
-
+    def send_data(self, radio_id, peers=None):
+        station = self.stations[radio_id]
         self.send({'type': 'data',
-                   'tracks': self.tracks,
-                   'registrations': registrations,
-                   'suggestions': suggestions}, peer)
+                   'radio_id': radio_id,
+                   'tracks': station.get_tracks(),
+                   'registrations': station.get_registrations()}, peers)
 
-    def register(self, peer, name):
-        self.registrations[peer] = {'user_id': hashlib.sha1(str(peer)).hexdigest(),
-                                    'user_name': name,
-                                    'time': int(time.time())}
+    @inlineCallbacks
+    def register(self, peer, user_name, radio_id):
+        if radio_id not in self.stations:
+            self.stations[radio_id] = BillyRadioStation(radio_id, self.config, self.database)
+            yield self.stations[radio_id].update_tracks()
 
-        message = {'type': 'registered'}
-        message.update(self.registrations[peer])
-        self.send(message)
+        station = self.stations[radio_id]
+        peers = station.get_peers()
+        station.register(peer, user_name)
+        self.send_data(radio_id, [peer])
+        self.send_status(radio_id, [peer])
+
+        registration = station.get_registration(peer)
+        message = {'type': 'registered',
+                   'user_id': registration['user_id'],
+                   'user_name': registration['user_name'],
+                   'radio_id': radio_id,
+                   'time': registration['time']}
+        self.send(message, peers=peers)
+
+    def unregister(self, peer, radio_id):
+        station = self.stations[radio_id]
+        registration = station.unregister(peer)
+        if registration:
+            message = {'type': 'unregistered',
+                       'user_id': registration['user_id'],
+                       'radio_id': radio_id}
+            self.send(message, station.get_peers())
+
+    @inlineCallbacks
+    def fetch_playlist(self):
+        self.logger.info('Checking tracks')
+
+        for radio_id, station in self.stations.iteritems():
+            updated = yield station.update_tracks()
+
+            if updated:
+                # Notify everyone
+                self.send_data(radio_id)
+                self.send_status(radio_id)
+
+            self.logger.info('Done checking tracks')
+
+
+class BillyRadioStation(object):
+    def __init__(self, radio_id, config, database):
+        self.logger = logging.getLogger(__name__)
+
+        self.start_time = 0
+        self.radio_id = radio_id
+        self.config = config
+        self.database = database
+        self.listeners = {}
+        self.tracks = []
+
+        radio = self.database.get_radio(self.radio_id)
+        self.session_id = radio['session_id']
+        self.playlist_name = radio['playlist_name']
+
+    def register(self, peer, user_name):
+        self.listeners[peer] = {'user_id': hashlib.sha1(str(peer)).hexdigest(),
+                                'user_name': user_name,
+                                'time': int(time.time())}
 
     def unregister(self, peer):
-        registration = self.registrations.pop(peer, None)
+        return self.listeners.pop(peer, None)
 
-        if registration:
-            message = {'type': 'unregistered'}
-            message['user_id'] = registration['user_id']
-            self.send(message)
+    def get_registration(self, peer):
+        return self.listeners.get(peer, None)
 
-    def suggest(self, peer, content):
-        registration = self.registrations.get(peer, None)
-
-        if registration:
-            self.suggestions.append({'user_id': registration['user_id'],
-                                     'user_name': registration['user_name'],
-                                     'content': content})
-
-            message = {'type': 'suggested'}
-            message.update(self.suggestions[-1])
-            self.send(message)
-        else:
-            self.logger.warning('Ignoring suggestion from unregistred user')
+    def get_registrations(self, limit=SEND_REGISTRATIONS):
+        return sorted(self.listeners.values(), key=lambda x: x['time'])[:limit]
 
     def get_play_position(self):
         play_position = int((time.time() - self.start_time))
@@ -138,9 +173,10 @@ class BillyRadioFactory(WebSocketServerFactory):
         return (track_index, play_position)
 
     @inlineCallbacks
-    def fetch_playlist(self):
-        self.logger.info('Checking tracks')
-        session = self.database.get_session(self.token)
+    def update_tracks(self):
+        self.logger.info('Checking tracks for radio %s', self.radio_id)
+
+        session = self.database.get_session(self.session_id)
         tracks = session['playlists'][self.playlist_name]['tracks']
 
         # Have the tracks changed?
@@ -173,9 +209,12 @@ class BillyRadioFactory(WebSocketServerFactory):
             self.tracks = tracks
             self.start_time = int(time.time())
 
-            # Notify everyone
-            self.send_data()
-            self.send_status()
+            returnValue(True)
+        returnValue(False)
 
-            self.logger.info('Tracks updated')
+    def get_tracks(self):
+        return self.tracks
+
+    def get_peers(self):
+        return self.listeners.keys()
 

@@ -202,3 +202,27 @@ class Database(object):
             info['status'].append('idle')
 
         return info
+
+    def add_radio(self, session_id, playlist_name):
+        # Generate a token while avoiding collisions
+        radio_id = binascii.b2a_hex(os.urandom(20))
+        while self.get_radio(radio_id) is not None:
+            token = binascii.b2a_hex(os.urandom(20))
+
+        self.db.radios.insert({'_id': radio_id,
+                               'session_id': session_id,
+                               'playlist_name': playlist_name})
+        return radio_id
+
+    def find_radio(self, session_id, playlist_name):
+        radios = list(self.db.radios.find({'session_id': session_id, 'playlist_name': playlist_name}).limit(1))
+        return radios[0] if radios else None
+
+    def get_radio(self, radio_id):
+        radios = list(self.db.radios.find({'_id': radio_id}).limit(1))
+        return radios[0] if radios else None
+
+    def delete_radio(self, radio_id):
+        result = self.db.radios.delete_one({"_id": radio_id});
+        return result.deleted_count > 0
+

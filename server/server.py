@@ -43,6 +43,7 @@ class APIResource(Resource):
         self.putChild('clicklog', ClicklogHandler(*args))
         self.putChild('waveform', WaveformHandler(*args))
         self.putChild('info', InfoHandler(*args))
+        self.putChild('radio', RadioHandler(*args))
 
 
 class BaseHandler(Resource):
@@ -292,6 +293,64 @@ class InfoHandler(BaseHandler):
         return {'info': self.database.get_info()}
 
 
+class RadioHandler(BaseHandler):
+
+    def check_args(self, request, session_id, playlist_name):
+        if session_id == None or playlist_name == None:
+            return self.error(request, 'missing session_id or playlist_name', 400)
+
+        session = self.database.get_session(session_id)
+        if session is None:
+            return self.error(request, 'cannot find session', 404)
+        elif playlist_name not in session['playlists']:
+            return self.error(request, 'cannot find playlist', 404)
+
+        return None
+
+    @json_out
+    def render_GET(self, request):
+        session_id = request.args['token'][0] if 'token' in request.args else None
+        playlist_name = request.args['name'][0] if 'name' in request.args else None
+
+        args_error = self.check_args(request, session_id, playlist_name)
+        if args_error:
+            return args_error
+
+        radio = self.database.find_radio(session_id, playlist_name)
+        if radio is None:
+            return self.error(request, 'cannot find radio', 404)
+
+        return {'radio_id': radio['_id']}
+
+    @json_out
+    def render_POST(self, request):
+        session_id = request.args['token'][0] if 'token' in request.args else None
+        playlist_name = request.args['name'][0] if 'name' in request.args else None
+
+        args_error = self.check_args(request, session_id, playlist_name)
+        if args_error:
+            return args_error
+
+        radio_id = self.database.add_radio(session_id, playlist_name)
+        return {'radio_id': radio_id}
+
+    @json_out
+    def render_DELETE(self, request):
+        session_id = request.args['token'][0] if 'token' in request.args else None
+        playlist_name = request.args['name'][0] if 'name' in request.args else None
+
+        args_error = self.check_args(request, session_id, playlist_name)
+        if args_error:
+            return args_error
+
+        radio = self.database.find_radio(session_id, playlist_name)
+        if radio is None:
+            return self.error(request, 'cannot find radio', 404)
+
+        self.database.delete_radio(radio['_id'])
+        return {}
+
+
 def main(argv):
     parser = argparse.ArgumentParser(description='Billy API server')
 
@@ -303,7 +362,7 @@ def main(argv):
         parser.add_argument('-d', '--dir', help='Directory with static content (served from http://server/billy)', required=False)
         parser.add_argument('-n', '--dbname', help='Name of the MongoDB database (default: billy)', required=False)
         parser.add_argument('-l', '--ssl', help='SSL key/certificate files (e.g. --ssl privkey.pem,cert.pem)', required=False)
-        parser.add_argument('-r', '--radio', help='Create a radio for a specific playlist (e.g. --radio a94a8fe5ccb19ba61c4c0873d391e987982fbbd3,playlistname)', required=False)
+        parser.add_argument('-r', '--radio', help='Enable radio', required=False, action='store_true')
         parser.add_help = True
         args = parser.parse_args(sys.argv[1:])
 
@@ -367,11 +426,8 @@ def main(argv):
 
     if args.radio:
         # Add WS API (only used for radio)
-        token, playlist_name = args.radio.split(',')
         scheme = 'ws' if not args.ssl else 'wss'
-        factory = BillyRadioFactory(scheme + '://127.0.0.1:' + args.port,
-                                    database=database, config=config,
-                                    token=token, playlist_name=playlist_name)
+        factory = BillyRadioFactory(scheme + '://127.0.0.1:' + args.port, database=database, config=config)
         factory.protocol = BillyRadioProtocol
         root.putChild('ws', WebSocketResource(factory))
 

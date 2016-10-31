@@ -120,6 +120,20 @@ app.controller('PlaylistCtrl', function ($scope, $rootScope, $timeout, $cookies,
         });
     };
 
+    $scope.radio = {enable: false};
+    $scope.toggle_radio = function(playlist_name) {
+        if ($scope.radio.enable) {
+            ApiService.add_radio(playlist_name).then(function (data) {
+                $scope.radio.id = data.radio_id;
+            });
+        }
+        else {
+            ApiService.delete_radio(playlist_name).then(function (data) {
+                $scope.radio.id = undefined;
+            });
+        }
+    }
+
     var current_playlist;
     $scope.$watch('tabs', function(new_value, old_value) {
         // Perform recommendation when user switches playlist tabs
@@ -127,6 +141,15 @@ app.controller('PlaylistCtrl', function ($scope, $rootScope, $timeout, $cookies,
             if ((new_value[playlist_name] || {}).active && !(old_value[playlist_name] || {}).active) {
                 $rootScope.$broadcast('recommend', playlist_name);
                 current_playlist = playlist_name;
+
+                // Is radio enabled for this playlist?
+                ApiService.get_radio(current_playlist, true).then(function success(data) {
+                    $scope.radio.id = data.radio_id;
+                    $scope.radio.enable = true;
+                }, function error(data) {
+                    $scope.radio.id = undefined;
+                    $scope.radio.enable = false;
+                });
             }
         });
     }, true);

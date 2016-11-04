@@ -108,12 +108,13 @@ class BillyRadioFactory(WebSocketServerFactory):
 
     def unregister(self, peer, radio_id):
         station = self.stations[radio_id]
+        peers = station.get_peers()
         registration = station.unregister(peer)
         if registration:
             message = {'type': 'unregistered',
                        'user_id': registration['user_id'],
                        'radio_id': radio_id}
-            self.send(message, station.get_peers())
+            self.send(message, peers=peers)
 
     @inlineCallbacks
     def fetch_playlist(self):

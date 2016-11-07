@@ -245,6 +245,7 @@ class ClicklogHandler(BaseHandler):
 
     @json_out
     def render_GET(self, request):
+        app = request.args['app'][0] if 'app' in request.args else None
         limit = request.args['limit'][0] if 'limit' in request.args else 0
 
         # Make sure the user is authorized (HTTP basic authentication)
@@ -253,20 +254,24 @@ class ClicklogHandler(BaseHandler):
             request.responseHeaders.addRawHeader('WWW-Authenticate', 'Basic realm="Billy"')
             return self.error(request, 'authentication failed', 401)
 
-        clicklog = list(self.database.get_clicklog(int(limit)))
+        clicklog = list(self.database.get_clicklog(app, int(limit)))
         return clicklog
 
     @json_out
     def render_POST(self, request):
-        token = request.args['token'][0] if 'token' in request.args else None
-        session = self.database.get_session(token)
-        if session is None:
-            return self.error(request, 'cannot find session', 404)
+        app = request.args['app'][0] if 'app' in request.args else 'billy'
 
         body = request.content.read()
         json_body = json.loads(body)
 
-        json_body['token'] = token
+        if app == 'billy':
+            token = request.args['token'][0] if 'token' in request.args else None
+            session = self.database.get_session(token)
+            if session is None:
+                return self.error(request, 'cannot find session', 404)
+            json_body['token'] = token
+
+        json_body['app'] = app
         json_body['user-agent'] = request.getAllHeaders().get('user-agent', '')
         json_body['ip'] = request.getClientIP()
         json_body['time'] = int(time.time())

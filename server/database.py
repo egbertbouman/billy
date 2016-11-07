@@ -161,8 +161,9 @@ class Database(object):
     def add_clicklog(self, clicklog):
         return self.db.clicklog.insert(clicklog)
 
-    def get_clicklog(self, limit=0):
-        return list(self.db.clicklog.find({}, {'_id': False}).sort('_id', -1).limit(int(limit)))
+    def get_clicklog(self, app=None, limit=0):
+        query = {'app': app} if app != None else {}
+        return list(self.db.clicklog.find(query, {'_id': False}).sort('_id', -1).limit(int(limit)))
 
     def add_user(self, name, password):
         user = {'name': name,

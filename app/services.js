@@ -397,7 +397,7 @@ app.service('ApiService', function($http, $cookies, HelperService) {
     this.api_playlists = this.api_base + '/playlists?token={0}&search={1}';
     this.api_tracks = this.api_base + '/tracks?query={0}&id={1}&offset={2}';
     this.api_recommend = this.api_base + '/recommend?token={0}&name={1}&offset={2}';
-    this.api_clicklog = this.api_base + '/clicklog?token={0}';
+    this.api_clicklog = this.api_base + '/clicklog?app=billy&token={0}';
     this.api_waveform = this.api_base + '/waveform?id={0}';
     this.api_info = this.api_base + '/info';
     this.api_radio = this.api_base + '/radio?token={0}&name={1}';

@@ -109,6 +109,14 @@ app.controller('PlaylistCtrl', function ($scope, $rootScope, $timeout, $cookies,
     };
     $scope.add = function(track) {
         MusicService.add(current_playlist, track);
+
+        ApiService.post_clicklog({
+            track: track.link,
+            playlist_name: current_playlist,
+            tab: $('#search div').css('display') !== 'none' ? 'search' : 'recommend',
+            query: $("#search-query").val()
+        });
+
         save_playlists().then(function () {
             $rootScope.$broadcast('recommend', current_playlist);
         });

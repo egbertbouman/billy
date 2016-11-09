@@ -43,7 +43,6 @@ class APIResource(Resource):
         self.putChild('clicklog', ClicklogHandler(*args))
         self.putChild('waveform', WaveformHandler(*args))
         self.putChild('info', InfoHandler(*args))
-        self.putChild('radio', RadioHandler(*args))
 
 
 class BaseHandler(Resource):
@@ -121,7 +120,13 @@ class PlaylistsHandler(BaseHandler):
                 return self.error(request, 'cannot find session', 404)
 
             playlists = session['playlists']
-            return session['playlists']
+
+            for playlist_name, playlist in playlists.iteritems():
+                radio = self.database.find_radio(token, playlist_name)
+                if radio is not None:
+                    playlist['radio_id'] = radio['_id']
+
+            return playlists
 
     @json_out
     def render_POST(self, request):
@@ -156,13 +161,35 @@ class PlaylistsHandler(BaseHandler):
             for function in playlists_old[playlist_name].get('functions', []):
                 self.database.update_function_counter(track_id, function, -1)
 
+        # Update radios
+        response = {}
+        for playlist_name, playlist in playlists_new.iteritems():
+            radio = self.database.find_radio(token, playlist_name)
+            radio_enabled = playlist.pop('radio_enabled', False)
+            if radio_enabled and radio is None:
+                radio_id = self.database.add_radio(token, playlist_name)
+                playlist['radio_id'] = radio_id
+                response['radios_created'] = response.get('radios_created', [])
+                response['radios_created'].append(radio_id)
+            if not radio_enabled and radio is not None:
+                self.database.delete_radio(radio['_id'])
+                response['radios_deleted'] = response.get('radios_deleted', [])
+                response['radios_deleted'].append(radio['_id'])
+        for playlist_name, playlist in playlists_old.iteritems():
+            if playlist_name not in playlists_new:
+                radio = self.database.find_radio(token, playlist_name)
+                if radio is not None:
+                    self.database.delete_radio(radio['_id'])
+                    response['radios_deleted'] = response.get('radios_deleted', [])
+                    response['radios_deleted'].append(radio['_id'])
+
         self.database.update_session(token, playlists_new)
 
         # Run the metadata checker (needs to be called after update_session)
         if check_metadata and not self.database.metadata_checker.checking:
             self.database.metadata_checker.check_all()
 
-        return {}
+        return response
 
 
 class TracksHandler(BaseHandler):
@@ -296,64 +323,6 @@ class InfoHandler(BaseHandler):
     @json_out
     def render_GET(self, request):
         return {'info': self.database.get_info()}
-
-
-class RadioHandler(BaseHandler):
-
-    def check_args(self, request, session_id, playlist_name):
-        if session_id == None or playlist_name == None:
-            return self.error(request, 'missing session_id or playlist_name', 400)
-
-        session = self.database.get_session(session_id)
-        if session is None:
-            return self.error(request, 'cannot find session', 404)
-        elif playlist_name not in session['playlists']:
-            return self.error(request, 'cannot find playlist', 404)
-
-        return None
-
-    @json_out
-    def render_GET(self, request):
-        session_id = request.args['token'][0] if 'token' in request.args else None
-        playlist_name = request.args['name'][0] if 'name' in request.args else None
-
-        args_error = self.check_args(request, session_id, playlist_name)
-        if args_error:
-            return args_error
-
-        radio = self.database.find_radio(session_id, playlist_name)
-        if radio is None:
-            return self.error(request, 'cannot find radio', 404)
-
-        return {'radio_id': radio['_id']}
-
-    @json_out
-    def render_POST(self, request):
-        session_id = request.args['token'][0] if 'token' in request.args else None
-        playlist_name = request.args['name'][0] if 'name' in request.args else None
-
-        args_error = self.check_args(request, session_id, playlist_name)
-        if args_error:
-            return args_error
-
-        radio_id = self.database.add_radio(session_id, playlist_name)
-        return {'radio_id': radio_id}
-
-    @json_out
-    def render_DELETE(self, request):
-        session_id = request.args['token'][0] if 'token' in request.args else None
-        playlist_name = request.args['name'][0] if 'name' in request.args else None
-
-        args_error = self.check_args(request, session_id, playlist_name)
-        if args_error:
-            return args_error
-
-        radio = self.database.find_radio(session_id, playlist_name)
-        if radio is None:
-            return self.error(request, 'cannot find radio', 404)
-
-        self.database.delete_radio(radio['_id'])
-        return {}
 
 
 def main(argv):

@@ -168,10 +168,10 @@
                   </li>
                   <div class="checkbox">
                       <label>
-                          <input type="checkbox" ng-change="toggle_radio(playlist_name)" ng-model="radio.enable">
+                          <input type="checkbox" ng-click="toggle_radio(playlist_name)" ng-checked="playlists[playlist_name].radio_id">
                           Enable radio for this playlist
                       </label>
-                      <p class="text-muted" ng-show="radio.enable">Radio ID = {{radio.id}}</p>
+                      <p class="text-muted" ng-show="playlists[playlist_name].radio_id !== undefined">Radio ID = {{playlists[playlist_name].radio_id}}</p>
                   </div>
               </div>
           </uib-tab>

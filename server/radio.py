@@ -179,6 +179,8 @@ class BillyRadioStation(object):
 
         session = self.database.get_session(self.session_id)
         tracks = session['playlists'][self.playlist_name]['tracks']
+        # Only allow youtube tracks for now
+        tracks = [track for track in tracks if track['link'].startswith('youtube:')]
 
         # Have the tracks changed?
         if [t['link'] for t in self.tracks] != [t['link'] for t in tracks]:
@@ -187,24 +189,13 @@ class BillyRadioStation(object):
             sc_api_key = self.config.get('sources', 'soundcloud_api_key')
 
             for track in tracks:
-                if track['link'].startswith('youtube:'):
-                    url = YOUTUBE_STATS_URL.format(api_key=yt_api_key, id=track['link'][8:])
-                    response = yield get_request(url)
-                    response_dict = response.json
-                    track['duration'] = int(isodate.parse_duration(response_dict['items'][0]['contentDetails']['duration']).total_seconds())
-                    track['musicinfo'] = track.get('musicinfo', {})
-                    track['musicinfo']['playback_count'] = response_dict['items'][0]['statistics']['viewCount']
-                    track['musicinfo']['comment_count'] = response_dict['items'][0]['statistics']['commentCount']
-
-                elif track['link'].startswith('soundcloud:'):
-                    url = SOUNDCLOUD_STATS_URL.format(api_key=sc_api_key, id=track['link'][11:])
-                    response = yield get_request(url)
-                    response_dict = response.json
-                    track['duration'] = response_dict['duration'] / 1000
-                    track['musicinfo'] = track.get('musicinfo', {})
-                    track['musicinfo']['playback_count'] = response_dict['playback_count']
-                    track['musicinfo']['comment_count'] = response_dict['comment_count']
-                    track['musicinfo']['favorite_count'] = response_dict['favoritings_count']
+                url = YOUTUBE_STATS_URL.format(api_key=yt_api_key, id=track['link'][8:])
+                response = yield get_request(url)
+                response_dict = response.json
+                track['duration'] = int(isodate.parse_duration(response_dict['items'][0]['contentDetails']['duration']).total_seconds())
+                track['musicinfo'] = track.get('musicinfo', {})
+                track['musicinfo']['playback_count'] = response_dict['items'][0]['statistics']['viewCount']
+                track['musicinfo']['comment_count'] = response_dict['items'][0]['statistics']['commentCount']
 
             # Update tracks
             self.tracks = tracks
